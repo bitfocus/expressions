@@ -4,6 +4,7 @@
 	"include": ["src/**/*"],
 	"compilerOptions": {
 		"outDir": "./dist",
-		"rootDir": "./src"
+		"rootDir": "./src",
+		"importHelpers": false // Avoid reliance on tslib, as we should not need it
 	}
 }
