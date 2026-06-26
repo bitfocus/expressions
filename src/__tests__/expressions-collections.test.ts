@@ -1,15 +1,14 @@
 import { describe, expect, it } from 'vitest'
-import { createExpressionFunctions } from '../ExpressionFunctions.js'
 import { ParseExpression } from '../ExpressionParse.js'
 import { ResolveExpression } from '../ExpressionResolve.js'
-
-const ExpressionFunctions = createExpressionFunctions(undefined)
 
 const noVars = (): undefined => undefined
 
 function run(expr: string, options?: { maxOperations?: number; maxCallDepth?: number }): any {
-	return ResolveExpression(ParseExpression(expr), noVars, ExpressionFunctions, {
+	return ResolveExpression(ParseExpression(expr), {
 		unknownVariableValue: '$NA',
+		getVariableValue: noVars,
+		parseVariables: null,
 		...options,
 	})
 }

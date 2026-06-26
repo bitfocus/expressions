@@ -6,10 +6,13 @@ import { ResolveExpression } from '../ExpressionResolve.js'
 // Thin wrapper that supplies the now-required options object so individual call sites stay terse.
 function resolve(
 	node: ReturnType<typeof parse>,
-	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined,
-	functions: Record<string, (...args: any[]) => any> = {}
+	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined
 ): JsonValue | undefined {
-	return ResolveExpression(node, getVariableValue, functions, { unknownVariableValue: '$NA' })
+	return ResolveExpression(node, {
+		unknownVariableValue: '$NA',
+		getVariableValue,
+		parseVariables: null,
+	})
 }
 
 // The operators the evaluator implements. (Previously enumerated from jsep's tables; now that we parse
@@ -258,20 +261,73 @@ describe('resolver', function () {
 
 	describe('functions', function () {
 		it('should parse and execute provided functions', function () {
-			const result = resolve(parse('round(10.1)'), defaultGetValue, { round: (v) => Math.round(v) })
+			const result = resolve(parse('round(10.1)'), defaultGetValue)
 			expect(result).toBe(10)
 		})
 
 		it('should fail on an unknown function', function () {
-			const fn = () => resolve(parse('round2(10.1)'), defaultGetValue, { round: (v) => Math.round(v) })
+			const fn = () => resolve(parse('round2(10.1)'), defaultGetValue)
 			expect(fn).toThrow(/Unsupported function "round2"/)
 		})
 
 		it('should handle multiple function arguments', function () {
-			const result = resolve(parse('round(10.1111) + round(10.1111, 0.1)'), defaultGetValue, {
-				round: (v, accuracy = 1) => Math.round(v / accuracy) * accuracy,
-			})
+			const result = resolve(parse('max(10.1, 20.1)'), defaultGetValue)
 			expect(result).toBe(20.1)
+		})
+	})
+
+	describe('parseVariables option', function () {
+		it('calls the provided parseVariables and returns its result', function () {
+			const calls: string[] = []
+			const parseVariables = (input: string): string => {
+				calls.push(input)
+				return input.replaceAll('$(ab:cd)', '42')
+			}
+			const result = ResolveExpression(parse('parseVariables("$(ab:cd) = $(ab:cd)")'), {
+				unknownVariableValue: '$NA',
+				getVariableValue: defaultGetValue,
+				parseVariables,
+			})
+			expect(result).toBe('42 = 42')
+			expect(calls).toEqual(['$(ab:cd) = $(ab:cd)'])
+		})
+
+		it('throws when parseVariables is not provided', function () {
+			const fn = () =>
+				ResolveExpression(parse('parseVariables("x")'), {
+					unknownVariableValue: '$NA',
+					getVariableValue: defaultGetValue,
+					parseVariables: null,
+				})
+			expect(fn).toThrow(/parseVariables is not supported here/)
+		})
+	})
+
+	describe('blink option', function () {
+		it('calls the provided blink with its arguments and returns its result', function () {
+			const calls: Array<[number, number | undefined]> = []
+			const blink = (interval: number, dutyCycle?: number): 0 | 1 => {
+				calls.push([interval, dutyCycle])
+				return 1
+			}
+			const result = ResolveExpression(parse('blink(1000, 0.25)'), {
+				unknownVariableValue: '$NA',
+				getVariableValue: defaultGetValue,
+				parseVariables: null,
+				blink,
+			})
+			expect(result).toBe(1)
+			expect(calls).toEqual([[1000, 0.25]])
+		})
+
+		it('throws when blink is not provided', function () {
+			const fn = () =>
+				ResolveExpression(parse('blink(1000)'), {
+					unknownVariableValue: '$NA',
+					getVariableValue: defaultGetValue,
+					parseVariables: null,
+				})
+			expect(fn).toThrow(/blink is not supported here/)
 		})
 	})
 
@@ -503,10 +559,8 @@ describe('resolver', function () {
 		})
 
 		it('spreads into function call arguments', () => {
-			const result = resolve(parse('sum(...[1, 2, 3], 4)'), defaultGetValue, {
-				sum: (...args: number[]) => args.reduce((a, b) => a + b, 0),
-			})
-			expect(result).toBe(10)
+			const result = resolve(parse("concat(...['1', '2', '3'], '4')"), defaultGetValue)
+			expect(result).toBe('1234')
 		})
 
 		it('throws when spreading a non-iterable value', () => {
@@ -674,7 +728,12 @@ describe('resolver', function () {
 
 	describe('stringConcatenation option', () => {
 		const resolveWith = (expr: string, stringConcatenation: boolean) =>
-			ResolveExpression(parse(expr), defaultGetValue, {}, { unknownVariableValue: '$NA', stringConcatenation })
+			ResolveExpression(parse(expr), {
+				unknownVariableValue: '$NA',
+				stringConcatenation,
+				getVariableValue: defaultGetValue,
+				parseVariables: null,
+			})
 
 		it('defaults to numeric coercion (Companion behaviour)', () => {
 			// Same as the default wrapper, which does not enable the option

@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createExpressionFunctions } from '../ExpressionFunctions.js'
 import { ParseExpression } from '../ExpressionParse.js'
 import { ResolveExpression } from '../ExpressionResolve.js'
-
-const ExpressionFunctions = createExpressionFunctions(undefined)
 
 /**
  * Sandbox guarantees for the expression evaluator.
@@ -23,7 +20,11 @@ const getVar = (variableId: string): any => {
 }
 
 function evaluate(expr: string): unknown {
-	return ResolveExpression(ParseExpression(expr), getVar, ExpressionFunctions, { unknownVariableValue: '$NA' })
+	return ResolveExpression(ParseExpression(expr), {
+		unknownVariableValue: '$NA',
+		getVariableValue: getVar,
+		parseVariables: null,
+	})
 }
 
 function evalResult(expr: string): { ok: true; value: unknown } | { ok: false; error: string } {
@@ -168,8 +169,10 @@ describe('expression sandbox', () => {
 		it('mutating a value read from a variable does not affect the source', () => {
 			const source = [1, 2, 3]
 			const getValue = (variableId: string): any => (variableId === 'my:arr' ? source : undefined)
-			const result = ResolveExpression(ParseExpression('a = $(my:arr); a[0] = 99; a'), getValue, ExpressionFunctions, {
+			const result = ResolveExpression(ParseExpression('a = $(my:arr); a[0] = 99; a'), {
 				unknownVariableValue: '$NA',
+				getVariableValue: getValue,
+				parseVariables: null,
 			})
 			expect(result).toEqual([99, 2, 3])
 			expect(source).toEqual([1, 2, 3])

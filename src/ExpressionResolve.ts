@@ -1,4 +1,5 @@
 import type { JsonValue } from 'type-fest'
+import { createExpressionFunctions } from './ExpressionFunctions.js'
 import type { SomeExpressionNode } from './ExpressionParse.js'
 
 /** Properties that must never be accessed or written via MemberExpression to prevent prototype pollution */
@@ -21,7 +22,24 @@ export const DEFAULT_MAX_CALL_DEPTH = 250
 
 export interface ResolveExpressionOptions {
 	/** The value to substitute when a variable is undefined */
-	unknownVariableValue: JsonValue
+	unknownVariableValue: JsonValue | undefined
+
+	/** Function to retrieve the value of a companion variable */
+	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined
+
+	/**
+	 * Function to parse and interpolate variables in a string
+	 * eg: `$(ab:cd) = $(ab:cd)` => `1 = 1`
+	 */
+	parseVariables: ((input: string) => string) | null
+
+	/**
+	 * A pulsing 0/1 value that cycles at the specified interval in milliseconds.
+	 * @param interval How long each cycle should take
+	 * @param dutyCycle The portion of the time to spend in the on state (0-1)
+	 * @returns Alternating 0 and 1
+	 */
+	blink?: (interval: number, dutyCycle?: number) => 0 | 1
 
 	/** Maximum number of loop iterations + function calls before aborting (default DEFAULT_MAX_OPERATIONS) */
 	maxOperations?: number
@@ -36,6 +54,11 @@ export interface ResolveExpressionOptions {
 	 *    would be `NaN` (so `'a' + 1` is `'a1'`, while `'1' + '2'` still resolves to `3`).
 	 */
 	stringConcatenation?: boolean
+
+	/**
+	 * IANA timezone name, or undefined/empty to use the process-local timezone
+	 */
+	defaultTimezone?: string
 }
 
 /** Thrown when the execution budget is exceeded. Not catchable by user code (the dialect has no try/catch). */
@@ -98,12 +121,13 @@ class Environment {
 	}
 }
 
-export function ResolveExpression(
-	node: SomeExpressionNode,
-	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined,
-	functionsRaw: Record<string, (...args: any[]) => any> = {},
-	options: ResolveExpressionOptions
-): JsonValue | undefined {
+function generateUnsupportedFallback(name: string) {
+	return () => {
+		throw new Error(`${name} is not supported here`)
+	}
+}
+
+export function ResolveExpression(node: SomeExpressionNode, options: ResolveExpressionOptions): JsonValue | undefined {
 	if (!node) throw new Error('Invalid expression')
 
 	const maxOperations = options.maxOperations ?? DEFAULT_MAX_OPERATIONS
@@ -111,8 +135,10 @@ export function ResolveExpression(
 
 	// Null-prototype map so that only the provided builtins are callable - a call like `constructor()`
 	// or `toString()` must not resolve to an inherited Object.prototype method.
-	const functions: typeof functionsRaw = Object.assign(Object.create(null), functionsRaw, {
-		getVariable: getVariableValue,
+	const functions = Object.assign(Object.create(null), createExpressionFunctions(options.defaultTimezone), {
+		getVariable: options.getVariableValue,
+		parseVariables: options.parseVariables || generateUnsupportedFallback('parseVariables'),
+		blink: options.blink || generateUnsupportedFallback('blink'),
 	})
 
 	// Per-evaluation execution budget
@@ -401,7 +427,7 @@ export function ResolveExpression(
 
 			case 'CompanionVariable': {
 				if (node.name === undefined) throw new Error('Missing variable identifier')
-				const value = getVariableValue(node.name)
+				const value = options.getVariableValue(node.name)
 				return structuredClone(value)
 			}
 

@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { createExpressionFunctions } from '../ExpressionFunctions.js'
 import { ParseExpression } from '../ExpressionParse.js'
 import { ResolveExpression } from '../ExpressionResolve.js'
-
-const ExpressionFunctions = createExpressionFunctions(undefined)
 
 /**
  * Regression corpus for the existing expression dialect: a broad spread of operators, precedence,
@@ -24,12 +21,20 @@ const VARS: Record<string, any> = {
 const getVar = (variableId: string): any => VARS[variableId]
 
 function evaluate(expr: string): unknown {
-	return ResolveExpression(ParseExpression(expr), getVar, ExpressionFunctions, { unknownVariableValue: '$NA' })
+	return ResolveExpression(ParseExpression(expr), {
+		unknownVariableValue: '$NA',
+		getVariableValue: getVar,
+		parseVariables: null,
+	})
 }
 function isInvalid(expr: string): boolean {
 	try {
 		ParseExpression(expr)
-		ResolveExpression(ParseExpression(expr), getVar, ExpressionFunctions, { unknownVariableValue: '$NA' })
+		ResolveExpression(ParseExpression(expr), {
+			unknownVariableValue: '$NA',
+			getVariableValue: getVar,
+			parseVariables: null,
+		})
 		return false
 	} catch {
 		return true

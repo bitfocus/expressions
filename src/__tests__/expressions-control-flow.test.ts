@@ -4,26 +4,22 @@ import { ResolveExpression } from '../ExpressionResolve.js'
 
 const noVars = (): undefined => undefined
 
-function run(expr: string, fns: Record<string, (...a: any[]) => any> = {}): any {
-	return ResolveExpression(ParseExpression(expr), noVars, fns, {
+function run(expr: string): any {
+	return ResolveExpression(ParseExpression(expr), {
 		unknownVariableValue: '$NA',
+		getVariableValue: noVars,
+		parseVariables: null,
 	})
 }
 
 function runWithOptions(expr: string, options: { maxOperations?: number; maxCallDepth?: number }): any {
-	return ResolveExpression(
-		ParseExpression(expr),
-		noVars,
-		{},
-		{
-			unknownVariableValue: '$NA',
-			...options,
-		}
-	)
+	return ResolveExpression(ParseExpression(expr), {
+		unknownVariableValue: '$NA',
+		getVariableValue: noVars,
+		parseVariables: null,
+		...options,
+	})
 }
-
-// Collects closures and invokes them - used to observe what loop closures captured
-const callAll = { callAll: (fns: Array<() => any>) => fns.map((f) => f()) }
 
 describe('control flow', () => {
 	describe('if / else', () => {
@@ -170,16 +166,12 @@ describe('arrow functions and closures', () => {
 	})
 
 	it('can be passed to a builtin that invokes it', () => {
-		const fns = {
-			mapArr: (arr: any[], fn: (x: any) => any) => arr.map(fn),
-			reduceArr: (arr: any[], fn: (acc: any, x: any) => any, init: any) => arr.reduce(fn, init),
-		}
-		expect(run('mapArr([1, 2, 3], x => x * 2)', fns)).toEqual([2, 4, 6])
-		expect(run('reduceArr([1, 2, 3, 4], (a, b) => a + b, 0)', fns)).toBe(10)
+		expect(run('arrayMap([1, 2, 3], x => x * 2)')).toEqual([2, 4, 6])
+		expect(run('arrayReduce([1, 2, 3, 4], (a, b) => a + b, 0)')).toBe(10)
 	})
 
 	it('a scoped function shadows a builtin of the same name', () => {
-		expect(run('let round = x => x + 100; round(1)', { round: (x: number) => Math.round(x) })).toBe(101)
+		expect(run('let round = x => x + 100; round(1)')).toBe(101)
 	})
 
 	it('return inside a loop inside a function exits the function', () => {
@@ -210,14 +202,14 @@ describe('execution budget', () => {
 
 describe('per-iteration loop scoping', () => {
 	it('classic for(let) gives each iteration its own binding (closures capture per-iteration value)', () => {
-		expect(run('let fns = []; for (let i = 0; i < 3; i++) { fns = [...fns, () => i] }; callAll(fns)', callAll)).toEqual(
-			[0, 1, 2]
-		)
+		expect(
+			run('let fns = []; for (let i = 0; i < 3; i++) { fns = [...fns, () => i] }; arrayMap(fns, f => f())')
+		).toEqual([0, 1, 2])
 	})
 
 	it('for...of gives each iteration its own binding', () => {
 		expect(
-			run('let fns = []; for (const x of [10, 20, 30]) { fns = [...fns, () => x] }; callAll(fns)', callAll)
+			run('let fns = []; for (const x of [10, 20, 30]) { fns = [...fns, () => x] }; arrayMap(fns, f => f())')
 		).toEqual([10, 20, 30])
 	})
 
