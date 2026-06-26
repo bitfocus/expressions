@@ -22,7 +22,7 @@
 		"node": ">=22.20"
 	},
 	"scripts": {
-		"build": "rimraf dist *.tsbuildinfo && tsc --build tsconfig.json",
+		"build": "rimraf --glob dist \"*.tsbuildinfo\" && tsc --build tsconfig.json",
 		"lint": "eslint .",
 		"unit": "vitest run",
 		"unit:watch": "vitest",
