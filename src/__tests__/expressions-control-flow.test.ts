@@ -1,15 +1,25 @@
 import { describe, expect, it } from 'vitest'
-import { ParseExpression } from '../Expression/ExpressionParse.js'
-import { ResolveExpression, type GetVariableValueProps } from '../Expression/ExpressionResolve.js'
+import { ParseExpression } from '../ExpressionParse.js'
+import { ResolveExpression } from '../ExpressionResolve.js'
 
-const noVars = (_p: GetVariableValueProps): undefined => undefined
+const noVars = (): undefined => undefined
 
 function run(expr: string, fns: Record<string, (...a: any[]) => any> = {}): any {
-	return ResolveExpression(ParseExpression(expr), noVars, fns)
+	return ResolveExpression(ParseExpression(expr), noVars, fns, {
+		unknownVariableValue: '$NA',
+	})
 }
 
 function runWithOptions(expr: string, options: { maxOperations?: number; maxCallDepth?: number }): any {
-	return ResolveExpression(ParseExpression(expr), noVars, {}, options)
+	return ResolveExpression(
+		ParseExpression(expr),
+		noVars,
+		{},
+		{
+			unknownVariableValue: '$NA',
+			...options,
+		}
+	)
 }
 
 // Collects closures and invokes them - used to observe what loop closures captured

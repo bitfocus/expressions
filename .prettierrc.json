@@ -1,0 +1,27 @@
+{
+	"arrowParens": "always",
+	"bracketSpacing": true,
+	"printWidth": 120,
+	"semi": false,
+	"singleQuote": true,
+	"useTabs": true,
+	"endOfLine": "lf",
+	"trailingComma": "es5",
+	"overrides": [
+		{
+			"files": ["*.yml", "*.yaml"],
+			"options": {
+				"singleQuote": false
+			}
+		},
+		{
+			"files": "docs/**/*.md",
+			"options": { "parser": "mdx" }
+		}
+	],
+	"plugins": ["@ianvs/prettier-plugin-sort-imports"],
+	"importOrder": ["<BUILTIN_MODULES>", "<THIRD_PARTY_MODULES>", "^@companion-(.*)$", "^~/(.*)$", "^[./]"],
+	"importOrderParserPlugins": ["typescript", "jsx", "decorators-legacy"],
+	"importOrderTypeScriptVersion": "6.0.0",
+	"importOrderCaseSensitive": false
+}

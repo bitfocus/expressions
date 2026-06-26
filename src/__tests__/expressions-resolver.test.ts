@@ -1,7 +1,16 @@
+import type { JsonValue } from 'type-fest'
 import { describe, expect, it } from 'vitest'
-import { ParseExpression as parse } from '../Expression/ExpressionParse.js'
-import { ResolveExpression as resolve, type GetVariableValueProps } from '../Expression/ExpressionResolve.js'
-import type { VariableValue } from '../Model/Variables.js'
+import { ParseExpression as parse } from '../ExpressionParse.js'
+import { ResolveExpression } from '../ExpressionResolve.js'
+
+// Thin wrapper that supplies the now-required options object so individual call sites stay terse.
+function resolve(
+	node: ReturnType<typeof parse>,
+	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined,
+	functions: Record<string, (...args: any[]) => any> = {}
+): JsonValue | undefined {
+	return ResolveExpression(node, getVariableValue, functions, { unknownVariableValue: '$NA' })
+}
 
 // The operators the evaluator implements. (Previously enumerated from jsep's tables; now that we parse
 // with acorn these are listed explicitly.)
@@ -29,7 +38,7 @@ const BINARY_OPERATORS = [
 const LOGICAL_OPERATORS = ['||', '&&', '??']
 const UNARY_OPERATORS = ['-', '+', '!', '~']
 
-const defaultGetValue = (_props: GetVariableValueProps): VariableValue | undefined => {
+const defaultGetValue = (_variableId: string): JsonValue | undefined => {
 	throw new Error('Not implemented')
 }
 
@@ -131,8 +140,8 @@ describe('resolver', function () {
 	describe('expressions with symbol/variable operands', function () {
 		it('should handle symbol and literal operands', function () {
 			const postfix = parse('$(internal:a) + 1')
-			const getVariable = (props: GetVariableValueProps): VariableValue | undefined => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): JsonValue | undefined => {
+				switch (variableId) {
 					case 'internal:a':
 						return 2
 				}
@@ -143,8 +152,8 @@ describe('resolver', function () {
 
 		it('should handle multiple symbol operands', function () {
 			const postfix = parse('$(internal:a) + $(test:c)')
-			const getVariable = (props: GetVariableValueProps): VariableValue | undefined => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): JsonValue | undefined => {
+				switch (variableId) {
 					case 'internal:a':
 						return '3'
 					case 'test:c':
@@ -157,8 +166,8 @@ describe('resolver', function () {
 
 		it('handle string variables', function () {
 			const postfix = parse('$(internal:a) ^ 2 + 2 * $(internal:b) + $(test:c)')
-			const getVariable = (props: GetVariableValueProps): VariableValue | undefined => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): JsonValue | undefined => {
+				switch (variableId) {
 					case 'internal:a':
 						return 3
 					case 'internal:b':
@@ -173,8 +182,8 @@ describe('resolver', function () {
 
 		it('should handle duplicate symbol operands', function () {
 			const postfix = parse('$(internal:a) / $(internal:a)')
-			const getVariable = (props: GetVariableValueProps): VariableValue | undefined => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): JsonValue | undefined => {
+				switch (variableId) {
 					case 'internal:a':
 						return 10
 				}
@@ -255,8 +264,8 @@ describe('resolver', function () {
 		})
 
 		it('handle complex templates', () => {
-			const getVariable = (props: GetVariableValueProps): VariableValue | undefined => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): JsonValue | undefined => {
+				switch (variableId) {
 					case 'some:var':
 						return 'var1'
 					case 'another:var':
@@ -304,8 +313,8 @@ describe('resolver', function () {
 		})
 
 		it('handle object define and lookup - off companion variable', () => {
-			const getVariable = (props: GetVariableValueProps): any => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): any => {
+				switch (variableId) {
 					case 'my:var':
 						return { val: 4 }
 				}
@@ -316,8 +325,8 @@ describe('resolver', function () {
 		})
 
 		it('define object - using companion variable', () => {
-			const getVariable = (props: GetVariableValueProps): VariableValue | undefined => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): JsonValue | undefined => {
+				switch (variableId) {
 					case 'my:var':
 						return 'val'
 				}
@@ -339,8 +348,8 @@ describe('resolver', function () {
 		})
 
 		it('array get beyond end - inline access', () => {
-			const getVariable = (props: GetVariableValueProps) => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string) => {
+				switch (variableId) {
 					case 'my:var':
 						return [1, 2, 3] as any
 				}
@@ -352,8 +361,8 @@ describe('resolver', function () {
 		})
 
 		it('array get beyond end - intermediate var', () => {
-			const getVariable = (props: GetVariableValueProps) => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string) => {
+				switch (variableId) {
 					case 'my:var':
 						return [1, 2, 3] as any
 				}
@@ -366,8 +375,8 @@ describe('resolver', function () {
 	})
 
 	describe('property access', () => {
-		const getObjVar = (props: GetVariableValueProps): any => {
-			switch (props.variableId) {
+		const getObjVar = (variableId: string): any => {
+			switch (variableId) {
 				case 'my:obj':
 					return { k: 'v', n: 42 }
 				case 'my:arr':
@@ -406,8 +415,8 @@ describe('resolver', function () {
 	})
 
 	describe('optional chaining', () => {
-		const getValue = (props: GetVariableValueProps): any => {
-			switch (props.variableId) {
+		const getValue = (variableId: string): any => {
+			switch (variableId) {
 				case 'my:obj':
 					return { k: 'v', nested: { deep: 1 } }
 				case 'my:null':
@@ -436,8 +445,8 @@ describe('resolver', function () {
 	})
 
 	describe('spread', () => {
-		const getValue = (props: GetVariableValueProps): any => {
-			switch (props.variableId) {
+		const getValue = (variableId: string): any => {
+			switch (variableId) {
 				case 'my:arr':
 					return [10, 20, 30]
 				case 'my:obj':
@@ -488,8 +497,8 @@ describe('resolver', function () {
 		})
 
 		it('return variable', () => {
-			const getVariable = (props: GetVariableValueProps): VariableValue | undefined => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): JsonValue | undefined => {
+				switch (variableId) {
 					case 'some:var':
 						return 'var1'
 				}
@@ -601,8 +610,8 @@ describe('resolver', function () {
 
 		it('mutate in place', () => {
 			const inputValue = [1, 2, 3]
-			const getVariable = (props: GetVariableValueProps): any => {
-				switch (props.variableId) {
+			const getVariable = (variableId: string): any => {
+				switch (variableId) {
 					case 'some:var':
 						return inputValue
 				}

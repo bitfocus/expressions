@@ -1,5 +1,4 @@
-import type { VariableValue } from '../Model/Variables.js'
-import { SplitVariableId, VARIABLE_UNKNOWN_VALUE } from '../Variables.js'
+import type { JsonValue } from 'type-fest'
 import type { SomeExpressionNode } from './ExpressionParse.js'
 
 /** Properties that must never be accessed or written via MemberExpression to prevent prototype pollution */
@@ -21,6 +20,9 @@ export const DEFAULT_MAX_OPERATIONS = 1_000_000
 export const DEFAULT_MAX_CALL_DEPTH = 250
 
 export interface ResolveExpressionOptions {
+	/** The value to substitute when a variable is undefined */
+	unknownVariableValue: JsonValue
+
 	/** Maximum number of loop iterations + function calls before aborting (default DEFAULT_MAX_OPERATIONS) */
 	maxOperations?: number
 	/** Maximum closure call-stack depth before aborting (default DEFAULT_MAX_CALL_DEPTH) */
@@ -87,36 +89,16 @@ class Environment {
 	}
 }
 
-export interface GetVariableValueProps {
-	variableId: string
-	label: string
-	name: string
-}
-
 export function ResolveExpression(
 	node: SomeExpressionNode,
-	getVariableValueRaw: (props: GetVariableValueProps) => VariableValue | undefined,
+	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined,
 	functionsRaw: Record<string, (...args: any[]) => any> = {},
-	options: ResolveExpressionOptions = {}
-): VariableValue | undefined {
+	options: ResolveExpressionOptions
+): JsonValue | undefined {
 	if (!node) throw new Error('Invalid expression')
 
 	const maxOperations = options.maxOperations ?? DEFAULT_MAX_OPERATIONS
 	const maxCallDepth = options.maxCallDepth ?? DEFAULT_MAX_CALL_DEPTH
-
-	const getVariableValue = (variableIdOrLabel: string, nameOrUndefined?: string) => {
-		if (nameOrUndefined !== undefined) {
-			return getVariableValueRaw({
-				variableId: `${variableIdOrLabel}:${nameOrUndefined}`,
-				label: variableIdOrLabel,
-				name: nameOrUndefined,
-			})
-		} else {
-			const [label, name] = SplitVariableId(variableIdOrLabel)
-
-			return getVariableValueRaw({ variableId: variableIdOrLabel, label, name })
-		}
-	}
 
 	// Null-prototype map so that only the provided builtins are callable - a call like `constructor()`
 	// or `toString()` must not resolve to an inherited Object.prototype method.
@@ -427,7 +409,7 @@ export function ResolveExpression(
 						const expression = node.expressions[i]
 
 						let value = evalNode(expression, env)
-						if (value === undefined) value = VARIABLE_UNKNOWN_VALUE
+						if (value === undefined) value = options.unknownVariableValue
 						result += value
 					}
 				}

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ExpressionFunctions } from '../Expression/ExpressionFunctions.js'
-import { ParseExpression } from '../Expression/ExpressionParse.js'
-import { ResolveExpression, type GetVariableValueProps } from '../Expression/ExpressionResolve.js'
+import { ExpressionFunctions } from '../ExpressionFunctions.js'
+import { ParseExpression } from '../ExpressionParse.js'
+import { ResolveExpression } from '../ExpressionResolve.js'
 
 // Realistic, multi-feature expressions of the kind a user might actually write - combining variables,
 // control flow, closures, collection helpers, objects/arrays, templates and optional chaining.
@@ -21,10 +21,10 @@ const VARS: Record<string, any> = {
 	'player:duration': 180,
 	'internal:operator': undefined,
 }
-const getVar = (p: GetVariableValueProps): any => VARS[p.variableId]
+const getVar = (variableId: string): any => VARS[variableId]
 
 function run(expr: string): any {
-	return ResolveExpression(ParseExpression(expr), getVar, ExpressionFunctions)
+	return ResolveExpression(ParseExpression(expr), getVar, ExpressionFunctions, { unknownVariableValue: '$NA' })
 }
 
 describe('realistic expression examples', () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ExpressionFunctions } from '../Expression/ExpressionFunctions.js'
+import { ExpressionFunctions } from '../ExpressionFunctions.js'
 
 describe('functions', () => {
 	describe('general', () => {

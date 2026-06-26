@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ExpressionFunctions } from '../Expression/ExpressionFunctions.js'
-import { ParseExpression } from '../Expression/ExpressionParse.js'
-import { ResolveExpression, type GetVariableValueProps } from '../Expression/ExpressionResolve.js'
+import { ExpressionFunctions } from '../ExpressionFunctions.js'
+import { ParseExpression } from '../ExpressionParse.js'
+import { ResolveExpression } from '../ExpressionResolve.js'
 
 /**
  * Sandbox guarantees for the expression evaluator.
@@ -14,14 +14,14 @@ import { ResolveExpression, type GetVariableValueProps } from '../Expression/Exp
  *  - reach host globals (`globalThis`, `process`, `require`, `Function`, ...)
  */
 
-const getVar = (p: GetVariableValueProps): any => {
+const getVar = (variableId: string): any => {
 	// A variable whose value is hostile JSON containing a `__proto__` own key
-	if (p.variableId === 'evil:obj') return JSON.parse('{"__proto__": {"polluted": true}, "a": 1}')
+	if (variableId === 'evil:obj') return JSON.parse('{"__proto__": {"polluted": true}, "a": 1}')
 	return undefined
 }
 
 function evaluate(expr: string): unknown {
-	return ResolveExpression(ParseExpression(expr), getVar, ExpressionFunctions)
+	return ResolveExpression(ParseExpression(expr), getVar, ExpressionFunctions, { unknownVariableValue: '$NA' })
 }
 
 function evalResult(expr: string): { ok: true; value: unknown } | { ok: false; error: string } {
@@ -165,8 +165,10 @@ describe('expression sandbox', () => {
 	describe('variable values are isolated (cloned per read)', () => {
 		it('mutating a value read from a variable does not affect the source', () => {
 			const source = [1, 2, 3]
-			const getValue = (p: GetVariableValueProps): any => (p.variableId === 'my:arr' ? source : undefined)
-			const result = ResolveExpression(ParseExpression('a = $(my:arr); a[0] = 99; a'), getValue, ExpressionFunctions)
+			const getValue = (variableId: string): any => (variableId === 'my:arr' ? source : undefined)
+			const result = ResolveExpression(ParseExpression('a = $(my:arr); a[0] = 99; a'), getValue, ExpressionFunctions, {
+				unknownVariableValue: '$NA',
+			})
 			expect(result).toEqual([99, 2, 3])
 			expect(source).toEqual([1, 2, 3])
 		})

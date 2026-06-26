@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { ParseExpression } from '../Expression/ExpressionParse.js'
+import { ParseExpression } from '../ExpressionParse.js'
 
 // ParseExpression runs the validation pass, so a rejected expression throws here.
 function accepts(expr: string): boolean {

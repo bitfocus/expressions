@@ -1,0 +1,9 @@
+{
+	"extends": "./tsconfig.base.json",
+	"exclude": ["node_modules/**"],
+	"include": ["vitest.config.mts", "src/**/__tests__/*"],
+	"compilerOptions": {
+		"noEmit": true
+	},
+	"references": [{ "path": "./tsconfig.build.json" }]
+}

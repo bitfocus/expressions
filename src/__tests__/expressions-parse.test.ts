@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { FindAllReferencedVariables, ParseExpression } from '../Expression/ExpressionParse.js'
+import { FindAllReferencedVariables, ParseExpression } from '../ExpressionParse.js'
 
 // Note: the expression dialect is now parsed with acorn, producing a standard ESTree `Program`.
 // These tests cover parsing behaviour at the level that matters to consumers: whether an expression
