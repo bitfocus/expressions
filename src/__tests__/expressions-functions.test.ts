@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { ExpressionFunctions } from '../ExpressionFunctions.js'
+import { createExpressionFunctions } from '../ExpressionFunctions.js'
+
+const ExpressionFunctions = createExpressionFunctions(undefined)
 
 describe('functions', () => {
 	describe('general', () => {
@@ -974,6 +976,30 @@ describe('functions', () => {
 		it('timeDiff', () => {
 			expect(ExpressionFunctions.timeDiff('2024-05-23T12:00Z', '2024-05-23T18:00-04:00')).toBe(36000)
 			expect(ExpressionFunctions.timeDiff('12:00', '18:00')).toBe(21600)
+		})
+	})
+
+	describe('default timezone', () => {
+		const ts = new Date('2024-06-15T12:00:00Z').getTime()
+
+		it('date functions use the factory default timezone when no explicit tz is given', () => {
+			const utcFns = createExpressionFunctions('UTC')
+			expect(utcFns.dateHour(ts)).toBe(12)
+
+			const nyFns = createExpressionFunctions('America/New_York')
+			expect(nyFns.dateHour(ts)).toBe(8) // UTC-4 in summer
+			expect(nyFns.dateFormat(ts, 'HH:mm')).toBe('08:00')
+		})
+
+		it('an explicit tz argument overrides the factory default', () => {
+			const nyFns = createExpressionFunctions('America/New_York')
+			// Explicit UTC wins over the New York default
+			expect(nyFns.dateHour(ts, 'UTC')).toBe(12)
+		})
+
+		it('memoizes the function set per timezone', () => {
+			expect(createExpressionFunctions('UTC')).toBe(createExpressionFunctions('UTC'))
+			expect(createExpressionFunctions('UTC')).not.toBe(createExpressionFunctions('Europe/Berlin'))
 		})
 	})
 })

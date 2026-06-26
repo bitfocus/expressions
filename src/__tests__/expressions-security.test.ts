@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest'
-import { ExpressionFunctions } from '../ExpressionFunctions.js'
+import { createExpressionFunctions } from '../ExpressionFunctions.js'
 import { ParseExpression } from '../ExpressionParse.js'
 import { ResolveExpression } from '../ExpressionResolve.js'
+
+const ExpressionFunctions = createExpressionFunctions(undefined)
 
 /**
  * Sandbox guarantees for the expression evaluator.
