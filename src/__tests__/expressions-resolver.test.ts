@@ -671,4 +671,28 @@ describe('resolver', function () {
 			expect(result).toBe(1)
 		})
 	})
+
+	describe('stringConcatenation option', () => {
+		const resolveWith = (expr: string, stringConcatenation: boolean) =>
+			ResolveExpression(parse(expr), defaultGetValue, {}, { unknownVariableValue: '$NA', stringConcatenation })
+
+		it('defaults to numeric coercion (Companion behaviour)', () => {
+			// Same as the default wrapper, which does not enable the option
+			expect(resolve(parse("'a' + 1"), defaultGetValue)).toBeNaN()
+			expect(resolveWith("'a' + 1", false)).toBeNaN()
+			expect(resolveWith("'1' + '2'", false)).toBe(3)
+			expect(resolveWith('1 + 2', false)).toBe(3)
+		})
+
+		it('concatenates strings when enabled and numeric addition would be NaN (button behaviour)', () => {
+			expect(resolveWith("'a' + 1", true)).toBe('a1')
+			expect(resolveWith("'foo' + 'bar'", true)).toBe('foobar')
+		})
+
+		it('still adds numerically when the operands coerce to numbers, even when enabled', () => {
+			expect(resolveWith('1 + 2', true)).toBe(3)
+			// both operands are numeric strings, so they add rather than concatenate
+			expect(resolveWith("'1' + '2'", true)).toBe(3)
+		})
+	})
 })

@@ -27,6 +27,15 @@ export interface ResolveExpressionOptions {
 	maxOperations?: number
 	/** Maximum closure call-stack depth before aborting (default DEFAULT_MAX_CALL_DEPTH) */
 	maxCallDepth?: number
+
+	/**
+	 * Controls how the `+` operator treats its operands.
+	 *  - `false` (default): always coerce both operands to numbers (the Companion behaviour,
+	 *    so `'a' + 1` is `NaN`).
+	 *  - `true`: prefer numeric addition, but fall back to string concatenation when the numeric result
+	 *    would be `NaN` (so `'a' + 1` is `'a1'`, while `'1' + '2'` still resolves to `3`).
+	 */
+	stringConcatenation?: boolean
 }
 
 /** Thrown when the execution budget is exceeded. Not catchable by user code (the dialect has no try/catch). */
@@ -308,7 +317,7 @@ export function ResolveExpression(
 				const right = evalNode(node.right, env)
 				switch (node.operator) {
 					case '+':
-						return Number(left) + Number(right)
+						return applyAddition(left, right, options.stringConcatenation)
 					case '-':
 						return Number(left) - Number(right)
 					case '*':
@@ -595,6 +604,18 @@ function spreadIterable(value: any): any[] {
 	if (typeof value === 'string') return Array.from(value)
 	if (typeof value[Symbol.iterator] === 'function') return Array.from(value)
 	throw new Error('Spread value is not iterable')
+}
+
+/**
+ * Apply the `+` operator.
+ *  - Default (Companion): coerce both operands to numbers, so `'a' + 1` is `NaN`.
+ *  - `stringConcatenation` (buttons): prefer numeric addition, but when that yields `NaN` fall back to
+ *    string concatenation, so `'a' + 1` is `'a1'` while `'1' + '2'` stays `3`.
+ */
+function applyAddition(left: any, right: any, stringConcatenation: boolean | undefined): any {
+	const numeric = Number(left) + Number(right)
+	if (!stringConcatenation || !Number.isNaN(numeric)) return numeric
+	return left + right
 }
 
 /**
