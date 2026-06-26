@@ -17,7 +17,7 @@ export const BANNED_PROPS = new Set([
 // runaway recursion) fails fast instead of stalling the process. Reset per top-level evaluation.
 // Configurable per call site via ResolveExpressionOptions - e.g. cheap/hot paths like option visibility
 // checks can pass a much lower limit.
-export const DEFAULT_MAX_OPERATIONS = 1_000_000
+export const DEFAULT_MAX_OPERATIONS = 50_000
 export const DEFAULT_MAX_CALL_DEPTH = 250
 
 export interface ResolveExpressionOptions {
