@@ -1,4 +1,4 @@
-export { ParseExpression, FindAllReferencedVariables } from './ExpressionParse.js'
+export { ParseExpression } from './ExpressionParse.js'
 export type { SomeExpressionNode } from './ExpressionParse.js'
 
 export { ResolveExpression, BANNED_PROPS, DEFAULT_MAX_OPERATIONS, DEFAULT_MAX_CALL_DEPTH } from './ExpressionResolve.js'

@@ -1,15 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { FindAllReferencedVariables, ParseExpression } from '../ExpressionParse.js'
+import { ParseExpression } from '../ExpressionParse.js'
 
 // Note: the expression dialect is now parsed with acorn, producing a standard ESTree `Program`.
 // These tests cover parsing behaviour at the level that matters to consumers: whether an expression
 // parses at all, and which Companion variables it references. The exact AST shape is an implementation
 // detail of acorn and is not asserted here; behavioural equivalence with the previous parser is proven
 // by expressions-resolver.test.ts and expressions-differential.test.ts.
-
-function referencedVariables(str: string): string[] {
-	return FindAllReferencedVariables(ParseExpression(str))
-}
 
 function parses(str: string): boolean {
 	try {
@@ -77,44 +73,6 @@ describe('parser', () => {
 				expect(parses(expr)).toBe(false)
 			})
 		}
-	})
-
-	describe('referenced variables', () => {
-		it('none for a plain expression', () => {
-			expect(referencedVariables('1 + 2')).toEqual([])
-		})
-
-		it('single variable', () => {
-			expect(referencedVariables('$(internal:a) + 1')).toEqual(['internal:a'])
-		})
-
-		it('multiple variables', () => {
-			expect(referencedVariables('$(internal:a) + $(test:c)')).toEqual(['internal:a', 'test:c'])
-		})
-
-		it('duplicate variables are reported each time', () => {
-			expect(referencedVariables('$(internal:a) / $(internal:a)')).toEqual(['internal:a', 'internal:a'])
-		})
-
-		it('variables inside templates', () => {
-			expect(referencedVariables('`${$(some:var)} and ${$(another:var)}`')).toEqual(['some:var', 'another:var'])
-		})
-
-		it('variable with computed property access', () => {
-			expect(referencedVariables("$(my:variable)['d']")).toEqual(['my:variable'])
-		})
-
-		it('variable with non-computed property access', () => {
-			expect(referencedVariables('$(my:variable).d')).toEqual(['my:variable'])
-		})
-
-		it('variables inside objects and arrays', () => {
-			expect(referencedVariables('{a: $(my:var), b: [$(other:var)]}')).toEqual(['my:var', 'other:var'])
-		})
-
-		it('variables used as function arguments', () => {
-			expect(referencedVariables('round($(some:num))')).toEqual(['some:num'])
-		})
 	})
 
 	describe('variable parsing', () => {
