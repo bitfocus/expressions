@@ -8,3 +8,5 @@ export { getZonedDateParts, getZoneOffsetMs, zonedTimeToUtc } from './Timezone.j
 export type { ZonedDateParts, WallClockFields } from './Timezone.js'
 
 export { ValidateExpression } from './ExpressionValidate.js'
+
+export { BuiltinFunctionNames } from './ExpressionFunctions.js'

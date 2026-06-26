@@ -553,3 +553,8 @@ export function createExpressionFunctions(
 	}
 	return functions
 }
+
+/**
+ * Name of the builtin expression functions
+ */
+export const BuiltinFunctionNames = Object.keys(createExpressionFunctions(undefined))
