@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.3](https://github.com/bitfocus/expressions/compare/v0.2.2...v0.2.3) (2026-06-26)
+
+
+### Bug Fixes
+
+* export BuiltinFunctionNames constant ([b2b258c](https://github.com/bitfocus/expressions/commit/b2b258c39ae7ffca1e2af01860c715e85f49a6ae))
+
 ## [0.2.2](https://github.com/bitfocus/expressions/compare/v0.2.1...v0.2.2) (2026-06-26)
 
 
