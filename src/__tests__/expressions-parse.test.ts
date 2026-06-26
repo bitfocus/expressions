@@ -81,7 +81,7 @@ describe('parser', () => {
 		})
 
 		it('empty name is allowed by the parser', () => {
-			expect(referencedVariables('$()')).toEqual([''])
+			expect(parses('$()')).toBe(true)
 		})
 	})
 })

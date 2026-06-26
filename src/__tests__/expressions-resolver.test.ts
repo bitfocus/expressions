@@ -193,6 +193,41 @@ describe('resolver', function () {
 		})
 	})
 
+	describe('variable reference syntax', function () {
+		// Variables referenced from buttons use the dotted `$(connection.variable)` form. The evaluator
+		// hands the raw inner string to getVariableValue as a single argument, but the same getter is also
+		// exposed as the `getVariable(label, name)` builtin which calls it with two arguments - both forms
+		// must resolve to the same value.
+		const VARS: Record<string, JsonValue> = {
+			'abc.def': 'dotted-value',
+			'internal:custom_a': 42,
+		}
+		const getVariable = (variableIdOrLabel: string, nameOrUndefined?: string): JsonValue | undefined => {
+			const id = nameOrUndefined === undefined ? variableIdOrLabel : `${variableIdOrLabel}.${nameOrUndefined}`
+			return VARS[id]
+		}
+
+		it('resolves a dotted $(abc.def) reference', function () {
+			expect(resolve(parse('$(abc.def)'), getVariable)).toBe('dotted-value')
+		})
+
+		it('resolves a dotted reference inside a template', function () {
+			expect(resolve(parse('`val: ${$(abc.def)}`'), getVariable)).toBe('val: dotted-value')
+		})
+
+		it('still resolves a colon-style reference', function () {
+			expect(resolve(parse('$(internal:custom_a) + 1'), getVariable)).toBe(43)
+		})
+
+		it('resolves the getVariable builtin called with two arguments', function () {
+			expect(resolve(parse("getVariable('abc', 'def')"), getVariable)).toBe('dotted-value')
+		})
+
+		it('resolves the getVariable builtin called with a single combined argument', function () {
+			expect(resolve(parse("getVariable('abc.def')"), getVariable)).toBe('dotted-value')
+		})
+	})
+
 	describe('expressions with errors', function () {
 		it('should detect missing symbol values', function () {
 			const getVariable = () => {
