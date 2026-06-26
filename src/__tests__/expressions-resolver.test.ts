@@ -6,12 +6,14 @@ import { ResolveExpression } from '../ExpressionResolve.js'
 // Thin wrapper that supplies the now-required options object so individual call sites stay terse.
 function resolve(
 	node: ReturnType<typeof parse>,
-	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined
+	getVariableValue: (variableIdOrLabel: string, nameOrUndefined?: string) => JsonValue | undefined,
+	overrides?: Partial<Parameters<typeof ResolveExpression>[1]>
 ): JsonValue | undefined {
 	return ResolveExpression(node, {
 		unknownVariableValue: '$NA',
 		getVariableValue,
 		parseVariables: null,
+		...overrides,
 	})
 }
 
@@ -379,6 +381,31 @@ describe('resolver', function () {
 		it('template on the next line after a number literal returns the template', () => {
 			const result = resolve(parse('1\n`done`'), defaultGetValue)
 			expect(result).toBe('done')
+		})
+
+		it('keeps escape sequences raw by default (backwards compatible)', () => {
+			const result = resolve(parse('`line1\\nline2\\ttab`'), defaultGetValue)
+			expect(result).toBe('line1\\nline2\\ttab')
+		})
+
+		it('processes escape sequences when processTemplateEscapes is enabled', () => {
+			const result = resolve(parse('`line1\\nline2\\ttab`'), defaultGetValue, { processTemplateEscapes: true })
+			expect(result).toBe('line1\nline2\ttab')
+		})
+
+		it('processes unicode escape sequences when enabled', () => {
+			const result = resolve(parse('`\\u0041\\u0042`'), defaultGetValue, { processTemplateEscapes: true })
+			expect(result).toBe('AB')
+		})
+
+		it('processes escape sequences around an interpolation when enabled', () => {
+			const result = resolve(parse('`a\\n${1 + 2}\\nb`'), defaultGetValue, { processTemplateEscapes: true })
+			expect(result).toBe('a\n3\nb')
+		})
+
+		it('substitutes unknownVariableValue for an undefined interpolation', () => {
+			const result = resolve(parse('`val: ${$(no:thing)}`'), () => undefined)
+			expect(result).toBe('val: $NA')
 		})
 	})
 

@@ -56,6 +56,15 @@ export interface ResolveExpressionOptions {
 	stringConcatenation?: boolean
 
 	/**
+	 * Controls how escape sequences in template literal string parts are handled.
+	 *  - `false` (default): the raw source text is used verbatim, so `` `a\nb` `` keeps the literal
+	 *    backslash-n (the original Companion behaviour). Safe for strings such as Windows paths.
+	 *  - `true`: escape sequences are processed (the "cooked" value), so `` `a\nb` `` contains a real
+	 *    newline, matching standard JavaScript template literals.
+	 */
+	processTemplateEscapes?: boolean
+
+	/**
 	 * IANA timezone name, or undefined/empty to use the process-local timezone
 	 */
 	defaultTimezone?: string
@@ -434,18 +443,26 @@ export function ResolveExpression(node: SomeExpressionNode, options: ResolveExpr
 			case 'TemplateLiteral': {
 				let result = ''
 
+				let expressionIndex = 0
 				for (let i = 0; i < node.quasis.length; i++) {
 					const quasi = node.quasis[i]
 					if (quasi.type !== 'TemplateElement') throw new Error(`Unsupported type for template element "${quasi.type}"`)
 
-					result += quasi.value.raw
+					// By default use the raw source text. When escape processing is enabled, prefer the
+					// cooked value (escape sequences interpreted), falling back to raw when cooked is null.
+					result += options.processTemplateEscapes ? (quasi.value.cooked ?? quasi.value.raw) : quasi.value.raw
 
 					if (!quasi.tail) {
-						const expression = node.expressions[i]
+						if (expressionIndex >= node.expressions.length)
+							throw new Error(`Missing expression at index ${expressionIndex} in template literal`)
 
-						let value = evalNode(expression, env)
-						if (value === undefined) value = options.unknownVariableValue
-						result += value
+						const expression = node.expressions[expressionIndex]
+						if (expression) {
+							let value = evalNode(expression, env)
+							if (value === undefined) value = options.unknownVariableValue
+							result += String(value)
+						}
+						expressionIndex++
 					}
 				}
 
