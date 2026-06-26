@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.1](https://github.com/bitfocus/expressions/compare/v0.2.0...v0.2.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* backport template literal interpolation fixes ([6ec8125](https://github.com/bitfocus/expressions/commit/6ec8125e9d3fdffeb6b128560392b328ca55277a))
+
 ## [0.2.0](https://github.com/bitfocus/expressions/compare/v0.1.0...v0.2.0) (2026-06-26)
 
 
