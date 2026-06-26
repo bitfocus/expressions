@@ -5,7 +5,8 @@
 
 	"packages": {
 		".": {
-			"release-type": "node"
+			"release-type": "node",
+			"bump-minor-pre-major": true
 		}
 	}
 }
