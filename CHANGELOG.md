@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.2](https://github.com/bitfocus/expressions/compare/v0.2.1...v0.2.2) (2026-06-26)
+
+
+### Bug Fixes
+
+* reduce default max operations ([b9deacc](https://github.com/bitfocus/expressions/commit/b9deacc76d9f006857870aac22cbfa71ca93b4dd))
+
 ## [0.2.1](https://github.com/bitfocus/expressions/compare/v0.2.0...v0.2.1) (2026-06-26)
 
 
