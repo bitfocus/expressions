@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.4](https://github.com/bitfocus/expressions/compare/v0.2.3...v0.2.4) (2026-06-27)
+
+
+### Bug Fixes
+
+* review comments for dst handling ([a761d70](https://github.com/bitfocus/expressions/commit/a761d707556c97992ff3c0c5399e1c8196c31c5d))
+
 ## [0.2.3](https://github.com/bitfocus/expressions/compare/v0.2.2...v0.2.3) (2026-06-26)
 
 
