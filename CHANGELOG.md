@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/bitfocus/expressions/compare/v0.2.4...v0.3.0) (2026-06-27)
+
+
+### Features
+
+* allow defaultTimezone to be a function, to allow the caller to determine if it was used ([d0e6ad0](https://github.com/bitfocus/expressions/commit/d0e6ad0e321f7bc867e0773c76777c5d5e744e25))
+
 ## [0.2.4](https://github.com/bitfocus/expressions/compare/v0.2.3...v0.2.4) (2026-06-27)
 
 
