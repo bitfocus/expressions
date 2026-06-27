@@ -65,9 +65,12 @@ export interface ResolveExpressionOptions {
 	processTemplateEscapes?: boolean
 
 	/**
-	 * IANA timezone name, or undefined/empty to use the process-local timezone
+	 * The effective timezone for date/time functions when no explicit `tz` argument is given.
+	 * Either an IANA timezone name (undefined/empty uses the process-local timezone), or a getter that
+	 * returns it. A getter is called each time a date function falls back to the default, which lets
+	 * Companion register a dependency on the active timezone so expressions re-evaluate when it changes.
 	 */
-	defaultTimezone?: string
+	defaultTimezone?: string | (() => string | undefined)
 }
 
 /** Thrown when the execution budget is exceeded. Not catchable by user code (the dialect has no try/catch). */

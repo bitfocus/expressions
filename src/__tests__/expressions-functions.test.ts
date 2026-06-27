@@ -1011,9 +1011,31 @@ describe('functions', () => {
 			expect(nyFns.dateHour(ts, 'UTC')).toBe(12)
 		})
 
-		it('memoizes the function set per timezone', () => {
-			expect(createExpressionFunctions('UTC')).toBe(createExpressionFunctions('UTC'))
-			expect(createExpressionFunctions('UTC')).not.toBe(createExpressionFunctions('Europe/Berlin'))
+		it('accepts the default timezone as a getter, calling it only on fallback', () => {
+			let calls = 0
+			const fns = createExpressionFunctions(() => {
+				calls++
+				return 'America/New_York'
+			})
+
+			// No explicit tz: the getter is consulted and its value applied
+			expect(fns.dateHour(ts)).toBe(8) // UTC-4 in summer
+			expect(calls).toBe(1)
+
+			// An explicit tz short-circuits the getter, so it is not called again
+			expect(fns.dateHour(ts, 'UTC')).toBe(12)
+			expect(calls).toBe(1)
+		})
+
+		it('reuses the shared static functions but rebuilds the date functions per call', () => {
+			const a = createExpressionFunctions('UTC')
+			const b = createExpressionFunctions('Europe/Berlin')
+
+			// Timezone-independent functions are built once and shared across every call
+			expect(a.round).toBe(b.round)
+
+			// Timezone-dependent date functions close over the per-call timezone, so they are not shared
+			expect(a.dateHour).not.toBe(b.dateHour)
 		})
 	})
 })
