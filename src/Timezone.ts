@@ -78,11 +78,15 @@ export function getZonedDateParts(d: Date, tz?: string): ZonedDateParts | null {
  * Returns 0 if the timezone is invalid.
  */
 export function getZoneOffsetMs(tz: string, ts: number): number {
-	const parts = getZonedDateParts(new Date(ts), tz)
+	// `getZonedDateParts` only resolves whole-second fields, so the sub-second portion of `ts`
+	// would otherwise leak into the computed offset (e.g. an offset reported as 4h-123ms). Floor
+	// to the containing second before differencing so the result is a clean zone offset.
+	const wholeSecondTs = Math.floor(ts / 1000) * 1000
+	const parts = getZonedDateParts(new Date(wholeSecondTs), tz)
 	if (!parts) return 0
 	// The wall-clock time in the zone, reinterpreted as if it were UTC.
 	const asUtc = Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute, parts.second)
-	return asUtc - ts
+	return asUtc - wholeSecondTs
 }
 
 export interface WallClockFields {
@@ -112,9 +116,32 @@ export function zonedTimeToUtc(fields: WallClockFields, tz?: string): number {
 	// Treat the wall-clock fields as if they were UTC, then correct by the zone's offset.
 	const naiveUtc = Date.UTC(year, month - 1, day, hour, minute, second)
 	// First approximation using the offset at the naive instant...
-	let instant = naiveUtc - getZoneOffsetMs(tz, naiveUtc)
+	const firstApprox = naiveUtc - getZoneOffsetMs(tz, naiveUtc)
 	// ...then refine once using the offset at the resulting instant. This resolves DST
 	// boundaries where the offset at the naive instant differs from the real one.
-	instant = naiveUtc - getZoneOffsetMs(tz, instant)
-	return instant
+	const refined = naiveUtc - getZoneOffsetMs(tz, firstApprox)
+
+	// During a spring-forward gap the requested wall-clock time does not exist (e.g.
+	// 2026-03-08 02:30 in America/New_York). There the refinement over-corrects and lands on an
+	// instant that reads an hour *earlier* on the clock than requested, which would make a
+	// time-of-day trigger fire early. Detect that by round-tripping the refined instant back to
+	// wall-clock parts: if they don't match the request, the time is in a gap, so normalise
+	// forward to `firstApprox` (the pre-transition offset), matching how plain `Date`
+	// construction shifts non-existent local times forward.
+	if (roundTripsTo(refined, tz, fields)) return refined
+	return firstApprox
+}
+
+/** True if `instant`, observed in `tz`, reads exactly the requested wall-clock fields. */
+function roundTripsTo(instant: number, tz: string, fields: WallClockFields): boolean {
+	const parts = getZonedDateParts(new Date(instant), tz)
+	if (!parts) return false
+	return (
+		parts.year === fields.year &&
+		parts.month === fields.month &&
+		parts.day === fields.day &&
+		parts.hour === fields.hour &&
+		parts.minute === fields.minute &&
+		parts.second === fields.second
+	)
 }

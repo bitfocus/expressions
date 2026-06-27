@@ -991,6 +991,20 @@ describe('functions', () => {
 			expect(nyFns.dateFormat(ts, 'HH:mm')).toBe('08:00')
 		})
 
+		it('dateAdd keeps calendar math in the factory timezone across a DST boundary', () => {
+			const nyFns = createExpressionFunctions('America/New_York')
+			// 2026-03-07 18:00 EST (UTC-5) is the evening before spring-forward.
+			const before = new Date('2026-03-07T23:00:00Z').getTime()
+			// Adding one calendar day must hold the 18:00 wall-clock time, landing on 18:00 EDT (UTC-4)
+			// the next day = 22:00Z. A UTC-based +24h would drift to 23:00Z (19:00 EDT).
+			const after = nyFns.dateAdd(before, 1, 'day') as number
+			expect(after).toBe(new Date('2026-03-08T22:00:00Z').getTime())
+			expect(nyFns.dateFormat(after, 'YYYY-MM-DD HH:mm')).toBe('2026-03-08 18:00')
+
+			// Time units stay fixed durations: +24h is a literal 24 hours regardless of DST.
+			expect(nyFns.dateAdd(before, 24, 'hours')).toBe(new Date('2026-03-08T23:00:00Z').getTime())
+		})
+
 		it('an explicit tz argument overrides the factory default', () => {
 			const nyFns = createExpressionFunctions('America/New_York')
 			// Explicit UTC wins over the New York default

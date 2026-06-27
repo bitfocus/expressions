@@ -58,6 +58,12 @@ describe('Timezone helpers', () => {
 			const ts = new Date('2026-06-25T12:00:00Z').getTime()
 			expect(getZoneOffsetMs('Europe/Berlin', ts)).toBe(2 * 60 * 60 * 1000)
 		})
+
+		it('ignores the sub-second part of the instant', () => {
+			// The offset is a whole-second quantity; a fractional-second instant must not leak into it.
+			const ts = Date.parse('2026-06-25T12:00:00.123Z')
+			expect(getZoneOffsetMs('America/New_York', ts)).toBe(-4 * 60 * 60 * 1000)
+		})
 	})
 
 	describe('zonedTimeToUtc', () => {
@@ -87,6 +93,18 @@ describe('Timezone helpers', () => {
 			expect(zonedTimeToUtc({ year: 2026, month: 3, day: 8, hour: 3, minute: 30, second: 0 }, 'America/New_York')).toBe(
 				Date.UTC(2026, 2, 8, 7, 30, 0)
 			)
+		})
+
+		it('normalises a non-existent spring-forward wall time forward instead of an hour early', () => {
+			// 2026-03-08 02:30 in New York does not exist (02:00 EST jumps to 03:00 EDT). Naively
+			// refining the offset lands on 01:30 local (an hour early); the round-trip guard pushes it
+			// forward to the post-transition wall clock (03:30 EDT = 07:30 UTC) instead.
+			const instant = zonedTimeToUtc(
+				{ year: 2026, month: 3, day: 8, hour: 2, minute: 30, second: 0 },
+				'America/New_York'
+			)
+			expect(instant).toBe(Date.UTC(2026, 2, 8, 7, 30, 0))
+			expect(getZonedDateParts(new Date(instant), 'America/New_York')).toMatchObject({ hour: 3, minute: 30 })
 		})
 
 		it('falls back to process-local construction when no zone is given', () => {

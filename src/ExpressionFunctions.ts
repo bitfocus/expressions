@@ -1,6 +1,6 @@
 import { JSONPath } from 'jsonpath-plus'
 import { countGraphemes } from 'unicode-segmenter/grapheme'
-import { getZonedDateParts, type ZonedDateParts } from './Timezone.js'
+import { getZonedDateParts, zonedTimeToUtc, type ZonedDateParts } from './Timezone.js'
 import { msToStamp, pad } from './Util.js'
 
 function toString(v: any): string {
@@ -56,6 +56,27 @@ const dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
  */
 function buildExpressionFunctions(defaultTimezone: string | undefined): Record<string, (...args: any[]) => any> {
 	const resolveTz = (tz: any): string | undefined => (typeof tz === 'string' && tz ? tz : defaultTimezone)
+
+	// Add whole calendar units (day/month/year) to `d` as observed in the factory timezone, holding
+	// the wall-clock time-of-day constant across DST transitions. Computing this with process-local
+	// `Date` setters drifts by an hour when the host and `defaultTimezone` disagree about DST (e.g. a
+	// UTC server running with `America/New_York`), so we decompose in-zone and recompose. Returns null
+	// if the zone is invalid.
+	const calendarAdd = (d: Date, field: 'day' | 'month' | 'year', amount: number): number | null => {
+		const parts = getZonedDateParts(d, defaultTimezone)
+		if (!parts) return null
+		const fields = {
+			year: parts.year,
+			month: parts.month,
+			day: parts.day,
+			hour: parts.hour,
+			minute: parts.minute,
+			second: parts.second,
+		}
+		fields[field] += amount
+		// `zonedTimeToUtc` resolves whole-second wall-clock fields; carry the sub-second part across.
+		return zonedTimeToUtc(fields, defaultTimezone) + d.getMilliseconds()
+	}
 
 	return {
 		// General operations
@@ -486,43 +507,46 @@ function buildExpressionFunctions(defaultTimezone: string | undefined): Record<s
 			}
 
 			unit = toString(unit).toLowerCase()
-			const result = new Date(d.getTime())
 
+			// Time units are fixed durations, so adding them is plain instant arithmetic (and inherently
+			// timezone-independent). Calendar units (day and larger) instead hold the wall-clock
+			// time-of-day in the factory timezone, so they go through `calendarAdd` to stay correct
+			// across DST boundaries.
+			let ts: number | null
 			switch (unit) {
 				case 'second':
 				case 'seconds':
-					result.setSeconds(result.getSeconds() + amount)
+					ts = d.getTime() + amount * 1000
 					break
 				case 'minute':
 				case 'minutes':
-					result.setMinutes(result.getMinutes() + amount)
+					ts = d.getTime() + amount * 60_000
 					break
 				case 'hour':
 				case 'hours':
-					result.setHours(result.getHours() + amount)
+					ts = d.getTime() + amount * 3_600_000
 					break
 				case 'day':
 				case 'days':
-					result.setDate(result.getDate() + amount)
+					ts = calendarAdd(d, 'day', amount)
 					break
 				case 'week':
 				case 'weeks':
-					result.setDate(result.getDate() + amount * 7)
+					ts = calendarAdd(d, 'day', amount * 7)
 					break
 				case 'month':
 				case 'months':
-					result.setMonth(result.getMonth() + amount)
+					ts = calendarAdd(d, 'month', amount)
 					break
 				case 'year':
 				case 'years':
-					result.setFullYear(result.getFullYear() + amount)
+					ts = calendarAdd(d, 'year', amount)
 					break
 				default:
 					return null
 			}
 
-			const ts = result.getTime()
-			return Number.isFinite(ts) ? ts : null
+			return ts !== null && Number.isFinite(ts) ? ts : null
 		},
 	}
 }
