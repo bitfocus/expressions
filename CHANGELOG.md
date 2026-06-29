@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/bitfocus/expressions/compare/v0.3.0...v0.4.0) (2026-06-29)
+
+
+### Features
+
+* add stringCompare function to help with sorting strings ([c27dcb8](https://github.com/bitfocus/expressions/commit/c27dcb86217f6c44722703048ea85755bc5198f9))
+
 ## [0.3.0](https://github.com/bitfocus/expressions/compare/v0.2.4...v0.3.0) (2026-06-27)
 
 

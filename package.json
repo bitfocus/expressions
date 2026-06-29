@@ -1,6 +1,6 @@
 {
 	"name": "@companion-app/expressions",
-	"version": "0.3.0",
+	"version": "0.4.0",
 	"description": "Parser and evaluator for Bitfocus Companion's expression dialect",
 	"license": "MIT",
 	"type": "module",
