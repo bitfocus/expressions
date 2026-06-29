@@ -50,6 +50,15 @@ describe('collection builtins', () => {
 	it('arraySort (optional comparator, returns a copy)', () => {
 		expect(run('arraySort([3, 1, 2], (a, b) => a - b)')).toEqual([1, 2, 3])
 		expect(run('arraySort([3, 1, 2], (a, b) => b - a)')).toEqual([3, 2, 1])
+		expect(
+			run(
+				'arraySort([{"name": "banana", "val": 2}, {"name": "apple", "val": 1}, {"name": "cherry", "val": 3}], (a, b) => stringCompare(a["name"], b["name"]))'
+			)
+		).toEqual([
+			{ name: 'apple', val: 1 },
+			{ name: 'banana', val: 2 },
+			{ name: 'cherry', val: 3 },
+		])
 		// does not mutate the source array
 		expect(run('let a = [3, 1, 2]; arraySort(a, (x, y) => x - y); a')).toEqual([3, 1, 2])
 	})

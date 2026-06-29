@@ -150,6 +150,9 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	replaceAll: (str, find, replace) => {
 		return toString(str).replaceAll(toString(find), toString(replace))
 	},
+	stringCompare: (a, b) => {
+		return toString(a).localeCompare(toString(b))
+	},
 	decode: (str, enc) => {
 		if (enc === undefined) {
 			enc = 'latin1'
