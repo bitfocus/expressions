@@ -298,6 +298,9 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 		return copy.sort((a, b) => Number(fn(a, b)))
 	},
 	arrayReverse: (arr) => (Array.isArray(arr) ? [...arr].reverse() : undefined),
+	arraySlice: (arr, start, end) => (Array.isArray(arr) ? arr.slice(start, end) : undefined),
+	arrayConcat: (...arrs) => ([] as any[]).concat(...arrs.map((arr) => (Array.isArray(arr) ? arr : [arr]))),
+	arrayFlat: (arr) => (Array.isArray(arr) ? arr.flat() : undefined),
 	objectKeys: (obj) => (obj && typeof obj === 'object' ? Object.keys(obj) : []),
 	objectValues: (obj) => (obj && typeof obj === 'object' ? Object.values(obj) : []),
 

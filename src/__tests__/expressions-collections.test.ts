@@ -69,6 +69,27 @@ describe('collection builtins', () => {
 		expect(run('objectValues({a: 1, b: 2})')).toEqual([1, 2])
 	})
 
+	it('arraySlice (returns a copy, does not mutate)', () => {
+		expect(run('arraySlice([1, 2, 3, 4, 5], 1, 3)')).toEqual([2, 3])
+		expect(run('arraySlice([1, 2, 3, 4, 5], 2)')).toEqual([3, 4, 5])
+		expect(run('arraySlice([1, 2, 3, 4, 5], -2)')).toEqual([4, 5])
+		expect(run('arraySlice("nope", 0, 1)')).toBeUndefined()
+		expect(run('let a = [1, 2, 3]; arraySlice(a, 0, 1); a')).toEqual([1, 2, 3])
+	})
+
+	it('arrayConcat (joins arrays, wraps non-arrays)', () => {
+		expect(run('arrayConcat([1, 2], [3, 4])')).toEqual([1, 2, 3, 4])
+		expect(run('arrayConcat([1], [2], [3])')).toEqual([1, 2, 3])
+		expect(run('arrayConcat([1, 2], 3)')).toEqual([1, 2, 3])
+		expect(run('arrayConcat()')).toEqual([])
+	})
+
+	it('arrayFlat (one level)', () => {
+		expect(run('arrayFlat([[1, 2], [3, 4]])')).toEqual([1, 2, 3, 4])
+		expect(run('arrayFlat([1, [2, [3, [4]]]])')).toEqual([1, 2, [3, [4]]])
+		expect(run('arrayFlat("nope")')).toBeUndefined()
+	})
+
 	it('compose cleanly', () => {
 		expect(
 			run('arrayReduce(arrayMap(arrayFilter([1, 2, 3, 4, 5], x => x % 2 === 1), x => x * 10), (a, b) => a + b, 0)')
