@@ -333,6 +333,61 @@ describe('resolver', function () {
 		})
 	})
 
+	describe('oscillate option', function () {
+		it('calls the provided oscillate with its arguments and returns its result', function () {
+			const calls: Array<[any, any]> = []
+			const oscillate = (period: any, waveform?: any): number => {
+				calls.push([period, waveform])
+				return 0.5
+			}
+			const result = ResolveExpression(parse("oscillate(1000, 'sine')"), {
+				unknownVariableValue: '$NA',
+				getVariableValue: defaultGetValue,
+				parseVariables: null,
+				oscillate,
+			})
+			expect(result).toBe(0.5)
+			expect(calls).toEqual([[1000, 'sine']])
+		})
+
+		it('passes through when the optional waveform is omitted', function () {
+			const calls: Array<[any, any]> = []
+			const oscillate = (period: any, waveform?: any): number => {
+				calls.push([period, waveform])
+				return 0
+			}
+			const result = ResolveExpression(parse('oscillate(2000)'), {
+				unknownVariableValue: '$NA',
+				getVariableValue: defaultGetValue,
+				parseVariables: null,
+				oscillate,
+			})
+			expect(result).toBe(0)
+			expect(calls).toEqual([[2000, undefined]])
+		})
+
+		it('returns the value from oscillate for use in a larger expression', function () {
+			const oscillate = (): number => 0.25
+			const result = ResolveExpression(parse('oscillate(1000) * 100'), {
+				unknownVariableValue: '$NA',
+				getVariableValue: defaultGetValue,
+				parseVariables: null,
+				oscillate,
+			})
+			expect(result).toBe(25)
+		})
+
+		it('throws when oscillate is not provided', function () {
+			const fn = () =>
+				ResolveExpression(parse('oscillate(1000)'), {
+					unknownVariableValue: '$NA',
+					getVariableValue: defaultGetValue,
+					parseVariables: null,
+				})
+			expect(fn).toThrow(/oscillate is not supported here/)
+		})
+	})
+
 	describe('ternaries', function () {
 		it('should parse and execute ternary', function () {
 			const result = resolve(parse('(1 > 2) ? 3 : 4'), defaultGetValue)
