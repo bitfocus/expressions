@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/bitfocus/expressions/compare/v0.5.0...v0.6.0) (2026-07-26)
+
+
+### Features
+
+* add support for oscillate function ([#14](https://github.com/bitfocus/expressions/issues/14)) ([43367d0](https://github.com/bitfocus/expressions/commit/43367d04b21a37271ba1aaa930cff0d3899c7695))
+
 ## [0.5.0](https://github.com/bitfocus/expressions/compare/v0.4.0...v0.5.0) (2026-07-08)
 
 
