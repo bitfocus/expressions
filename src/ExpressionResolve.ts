@@ -41,6 +41,14 @@ export interface ResolveExpressionOptions {
 	 */
 	blink?: (interval: number, dutyCycle?: number) => 0 | 1
 
+	/**
+	 * An oscilating 0-1 value that updates multiples times a second
+	 * @param period Period of the oscillation
+	 * @param waveform Shape of the waveform
+	 * @returns Value 0 - 1
+	 */
+	oscillate?: (period: any, waveform?: any) => number
+
 	/** Maximum number of loop iterations + function calls before aborting (default DEFAULT_MAX_OPERATIONS) */
 	maxOperations?: number
 	/** Maximum closure call-stack depth before aborting (default DEFAULT_MAX_CALL_DEPTH) */
@@ -151,6 +159,7 @@ export function ResolveExpression(node: SomeExpressionNode, options: ResolveExpr
 		getVariable: options.getVariableValue,
 		parseVariables: options.parseVariables || generateUnsupportedFallback('parseVariables'),
 		blink: options.blink || generateUnsupportedFallback('blink'),
+		oscillate: options.oscillate || generateUnsupportedFallback('oscillate'),
 	})
 
 	// Per-evaluation execution budget
