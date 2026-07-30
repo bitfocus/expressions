@@ -9,4 +9,5 @@ export type { ZonedDateParts, WallClockFields } from './Timezone.js'
 
 export { ValidateExpression } from './ExpressionValidate.js'
 
-export { BuiltinFunctionNames } from './ExpressionFunctions.js'
+export { BuiltinFunctionNames, MIN_CLOCK_PERIOD_MS, BLINK_DEFAULT_DUTY_CYCLE } from './ExpressionFunctions.js'
+export type { OscillateClock } from './ExpressionFunctions.js'

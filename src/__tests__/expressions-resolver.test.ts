@@ -305,12 +305,14 @@ describe('resolver', function () {
 		})
 	})
 
+	// Only the option plumbing is covered here; the waveform and coercion behaviour built on top of these
+	// hooks lives in expressions-clock.test.ts
 	describe('blink option', function () {
-		it('calls the provided blink with its arguments and returns its result', function () {
-			const calls: Array<[number, number | undefined]> = []
-			const blink = (interval: number, dutyCycle?: number): 0 | 1 => {
-				calls.push([interval, dutyCycle])
-				return 1
+		it('calls the provided blink with its arguments and coerces the result', function () {
+			const calls: Array<[number, number]> = []
+			const blink = (intervalMs: number, dutyCycle: number): boolean => {
+				calls.push([intervalMs, dutyCycle])
+				return true
 			}
 			const result = ResolveExpression(parse('blink(1000, 0.25)'), {
 				unknownVariableValue: '$NA',
@@ -334,47 +336,41 @@ describe('resolver', function () {
 	})
 
 	describe('oscillate option', function () {
-		it('calls the provided oscillate with its arguments and returns its result', function () {
-			const calls: Array<[any, any]> = []
-			const oscillate = (period: any, waveform?: any): number => {
-				calls.push([period, waveform])
-				return 0.5
-			}
+		it('calls the provided clock with the period and shapes its result', function () {
+			const calls: number[] = []
 			const result = ResolveExpression(parse("oscillate(1000, 'sine')"), {
 				unknownVariableValue: '$NA',
 				getVariableValue: defaultGetValue,
 				parseVariables: null,
-				oscillate,
+				oscillate: {
+					getCycleFraction: (periodMs) => {
+						calls.push(periodMs)
+						return 0.5
+					},
+				},
 			})
-			expect(result).toBe(0.5)
-			expect(calls).toEqual([[1000, 'sine']])
+			expect(result).toBe(1)
+			expect(calls).toEqual([1000])
 		})
 
-		it('passes through when the optional waveform is omitted', function () {
-			const calls: Array<[any, any]> = []
-			const oscillate = (period: any, waveform?: any): number => {
-				calls.push([period, waveform])
-				return 0
-			}
+		it('defaults to the sine waveform when it is omitted', function () {
 			const result = ResolveExpression(parse('oscillate(2000)'), {
 				unknownVariableValue: '$NA',
 				getVariableValue: defaultGetValue,
 				parseVariables: null,
-				oscillate,
+				oscillate: { getCycleFraction: () => 0 },
 			})
 			expect(result).toBe(0)
-			expect(calls).toEqual([[2000, undefined]])
 		})
 
 		it('returns the value from oscillate for use in a larger expression', function () {
-			const oscillate = (): number => 0.25
-			const result = ResolveExpression(parse('oscillate(1000) * 100'), {
+			const result = ResolveExpression(parse("oscillate(1000, 'triangle') * 100"), {
 				unknownVariableValue: '$NA',
 				getVariableValue: defaultGetValue,
 				parseVariables: null,
-				oscillate,
+				oscillate: { getCycleFraction: () => 0.25 },
 			})
-			expect(result).toBe(25)
+			expect(result).toBe(50)
 		})
 
 		it('throws when oscillate is not provided', function () {

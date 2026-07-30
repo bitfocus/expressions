@@ -1,5 +1,10 @@
 import type { JsonValue } from 'type-fest'
-import { createExpressionFunctions } from './ExpressionFunctions.js'
+import {
+	buildBlinkFunction,
+	buildOscillateFunction,
+	createExpressionFunctions,
+	type OscillateClock,
+} from './ExpressionFunctions.js'
 import type { SomeExpressionNode } from './ExpressionParse.js'
 
 /** Properties that must never be accessed or written via MemberExpression to prevent prototype pollution */
@@ -34,20 +39,23 @@ export interface ResolveExpressionOptions {
 	parseVariables: ((input: string) => string) | null
 
 	/**
-	 * A pulsing 0/1 value that cycles at the specified interval in milliseconds.
-	 * @param interval How long each cycle should take
-	 * @param dutyCycle The portion of the time to spend in the on state (0-1)
-	 * @returns Alternating 0 and 1
+	 * Implements `blink()`: return whether the blink is currently in its "on" state. Both arguments are
+	 * validated before they get here - `intervalMs` is a number no smaller than `MIN_CLOCK_PERIOD_MS`,
+	 * and `dutyCycle` is a number in 0-1 (defaulting to `BLINK_DEFAULT_DUTY_CYCLE`) - so a host never
+	 * sees whatever the expression happened to pass.
+	 *
+	 * Omit to leave `blink()` unsupported.
 	 */
-	blink?: (interval: number, dutyCycle?: number) => 0 | 1
+	blink?: (intervalMs: number, dutyCycle: number) => boolean
 
 	/**
-	 * An oscilating 0-1 value that updates multiples times a second
-	 * @param period Period of the oscillation
-	 * @param waveform Shape of the waveform
-	 * @returns Value 0 - 1
+	 * Provides the clock for `oscillate()`: where the host currently is within the cycle, and how finely
+	 * it can tell. The `phase` argument and the waveform shaping are applied on top of it, so a host does
+	 * not implement the waveforms itself.
+	 *
+	 * Omit to leave `oscillate()` unsupported.
 	 */
-	oscillate?: (period: any, waveform?: any) => number
+	oscillate?: OscillateClock
 
 	/** Maximum number of loop iterations + function calls before aborting (default DEFAULT_MAX_OPERATIONS) */
 	maxOperations?: number
@@ -153,13 +161,17 @@ export function ResolveExpression(node: SomeExpressionNode, options: ResolveExpr
 	const maxOperations = options.maxOperations ?? DEFAULT_MAX_OPERATIONS
 	const maxCallDepth = options.maxCallDepth ?? DEFAULT_MAX_CALL_DEPTH
 
+	// Captured so the narrowing survives into the wrapper closures below
+	const blinkOption = options.blink
+	const oscillateOption = options.oscillate
+
 	// Null-prototype map so that only the provided builtins are callable - a call like `constructor()`
 	// or `toString()` must not resolve to an inherited Object.prototype method.
 	const functions = Object.assign(Object.create(null), createExpressionFunctions(options.defaultTimezone), {
 		getVariable: options.getVariableValue,
 		parseVariables: options.parseVariables || generateUnsupportedFallback('parseVariables'),
-		blink: options.blink || generateUnsupportedFallback('blink'),
-		oscillate: options.oscillate || generateUnsupportedFallback('oscillate'),
+		blink: blinkOption ? buildBlinkFunction(blinkOption) : generateUnsupportedFallback('blink'),
+		oscillate: oscillateOption ? buildOscillateFunction(oscillateOption) : generateUnsupportedFallback('oscillate'),
 	})
 
 	// Per-evaluation execution budget

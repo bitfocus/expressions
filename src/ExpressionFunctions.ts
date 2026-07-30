@@ -571,6 +571,100 @@ function buildDateFunctions(getDefaultTimezone: () => string | undefined): Recor
 }
 
 /**
+ * The shortest cycle the clock-driven builtins will honour, regardless of how fine the host's clock is.
+ * A shorter one would let an expression ask for a strobe (a `square` wave at 100ms already toggles at
+ * 10Hz), and a cycle of 0 would hand the host a division by zero. A coarse clock raises this floor
+ * further, but nothing lowers it.
+ */
+export const MIN_CLOCK_PERIOD_MS = 100
+
+/** The portion of each interval `blink()` spends in its "on" state when the expression does not say. */
+export const BLINK_DEFAULT_DUTY_CYCLE = 0.5
+
+/**
+ * Build the `blink` builtin around a host-supplied on/off state. The arguments are validated here so
+ * every host sees the same canonical numbers - `blink('1000')` and `blink(1000)` are the same blink,
+ * which also matters where the host derives a key or a dependency from them.
+ */
+export function buildBlinkFunction(
+	isOn: (intervalMs: number, dutyCycle: number) => boolean
+): (interval: any, dutyCycle?: any) => 0 | 1 {
+	return (interval, dutyCycle) => {
+		// Clamp before checking, as in `oscillate`: `Math.max(100, NaN)` is NaN, so a non-numeric interval
+		// reads as off rather than silently becoming the minimum interval.
+		const intervalMs = Math.max(MIN_CLOCK_PERIOD_MS, Number(interval))
+		if (isNaN(intervalMs)) return 0
+
+		const rawDutyCycle = Number(dutyCycle)
+		const clampedDutyCycle = isNaN(rawDutyCycle) ? BLINK_DEFAULT_DUTY_CYCLE : Math.min(Math.max(rawDutyCycle, 0), 1)
+
+		return isOn(intervalMs, clampedDutyCycle) ? 1 : 0
+	}
+}
+
+/** The host clock backing `oscillate()`. */
+export interface OscillateClock {
+	/**
+	 * Given the period of the oscillation in milliseconds (already validated and clamped), return the
+	 * current position within that cycle as a fraction: 0 at the start of a cycle, approaching 1 at the
+	 * end. Values outside 0-1 are wrapped.
+	 *
+	 * Aligning the fraction to the unix epoch keeps separate evaluations of the same period in sync.
+	 */
+	getCycleFraction: (periodMs: number) => number
+
+	/**
+	 * How far apart consecutive samples of that clock can be - typically `1000 / redraw rate`, and the
+	 * same figure the host quantises its own clock to (Companion redraws at 10Hz, so it passes 100).
+	 *
+	 * It raises the effective minimum period, and is how far before the end of the cycle the `sawtooth`
+	 * ramp reaches 1 - without that the ramp would jump from its last sampled value straight back to 0 and
+	 * never actually reach full scale. Omit for a continuous clock.
+	 */
+	granularityMs?: number
+}
+
+/**
+ * Build the `oscillate` builtin around a host-supplied clock. The phase offset and waveform shaping are
+ * applied on top of the clock here, so a host only has to say where it is in the cycle and how finely it
+ * can tell.
+ *
+ * Rebuilt per evaluation so the clock stays current, in the same way as the date functions.
+ */
+export function buildOscillateFunction(clock: OscillateClock): (period: any, waveform?: any, phase?: any) => number {
+	const granularityMs = Math.max(0, Number(clock.granularityMs) || 0)
+	const minPeriodMs = Math.max(MIN_CLOCK_PERIOD_MS, granularityMs)
+
+	return (period, waveform, phase) => {
+		// Note: clamp first, then check. `Math.max(100, NaN)` is NaN, so a non-numeric period yields 0
+		// rather than silently becoming the minimum period.
+		const periodMs = Math.max(minPeriodMs, Number(period))
+		if (isNaN(periodMs)) return 0
+
+		const phaseOffset = Number(phase)
+		const raw = clock.getCycleFraction(periodMs) + (isNaN(phaseOffset) ? 0 : phaseOffset)
+
+		// Wrap into 0-1, tolerating both out-of-range clocks and negative phase offsets
+		const t = ((raw % 1) + 1) % 1
+
+		switch (typeof waveform === 'string' ? waveform.toLowerCase() : 'sine') {
+			case 'sine':
+				// Shifted a quarter turn so the cycle starts at 0, peaks at 1 halfway, and returns to 0
+				return (Math.sin(2 * Math.PI * t - Math.PI / 2) + 1) / 2
+			case 'triangle':
+				return t < 0.5 ? 2 * t : 2 * (1 - t)
+			case 'sawtooth':
+				// A cycle no longer than one sample can't be ramped through at all
+				return periodMs <= granularityMs ? 0 : Math.min((t * periodMs) / (periodMs - granularityMs), 1)
+			case 'square':
+			default:
+				// Also the fallback for an unrecognised waveform name
+				return t < 0.5 ? 1 : 0
+		}
+	}
+}
+
+/**
  * Get the set of expression functions, with date/time functions defaulting to the given timezone when
  * no explicit `tz` argument is passed.
  *
