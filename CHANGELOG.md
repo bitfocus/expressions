@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/bitfocus/expressions/compare/v0.6.0...v0.7.0) (2026-07-30)
+
+
+### Features
+
+* rework oscillate and blink in options to reduce required implementation in parent app ([184ee1f](https://github.com/bitfocus/expressions/commit/184ee1f54610cc96b8976d923972513a0f62165b))
+
 ## [0.6.0](https://github.com/bitfocus/expressions/compare/v0.5.0...v0.6.0) (2026-07-26)
 
 
