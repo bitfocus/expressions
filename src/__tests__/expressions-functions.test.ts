@@ -266,6 +266,59 @@ describe('functions', () => {
 			expect(ExpressionFunctions.tan(Infinity)).toBe(NaN)
 			expect(ExpressionFunctions.tan(undefined)).toBe(NaN)
 		})
+
+		it('asin', () => {
+			expect(ExpressionFunctions.asin(0)).toBe(0)
+			expect(ExpressionFunctions.asin('0')).toBe(0)
+			expect(ExpressionFunctions.asin(1)).toBeCloseTo(Math.PI / 2)
+			expect(ExpressionFunctions.asin(-1)).toBeCloseTo(-Math.PI / 2)
+			expect(ExpressionFunctions.asin(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.asin(undefined)).toBe(NaN)
+		})
+
+		it('acos', () => {
+			expect(ExpressionFunctions.acos(0)).toBeCloseTo(Math.PI / 2)
+			expect(ExpressionFunctions.acos('0')).toBeCloseTo(Math.PI / 2)
+			expect(ExpressionFunctions.acos(1)).toBe(0)
+			expect(ExpressionFunctions.acos(-1)).toBeCloseTo(Math.PI)
+			expect(ExpressionFunctions.acos(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.acos(undefined)).toBe(NaN)
+		})
+
+		it('atan', () => {
+			expect(ExpressionFunctions.atan(0)).toBe(0)
+			expect(ExpressionFunctions.atan('0')).toBe(0)
+			expect(ExpressionFunctions.atan(1)).toBeCloseTo(Math.PI / 4)
+			expect(ExpressionFunctions.atan(-1)).toBeCloseTo(-Math.PI / 4)
+			expect(ExpressionFunctions.atan(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.atan(undefined)).toBe(NaN)
+		})
+
+		it('asinh', () => {
+			expect(ExpressionFunctions.asinh(0)).toBe(0)
+			expect(ExpressionFunctions.asinh('0')).toBe(0)
+			expect(ExpressionFunctions.asinh(1)).toBeCloseTo(0.88137358701954305)
+			expect(ExpressionFunctions.asinh(-1)).toBeCloseTo(-0.88137358701954305)
+			expect(ExpressionFunctions.asinh(Infinity)).toBe(Infinity)
+			expect(ExpressionFunctions.asinh(undefined)).toBe(NaN)
+		})
+
+		it('acosh', () => {
+			expect(ExpressionFunctions.acosh(1)).toBe(0)
+			expect(ExpressionFunctions.acosh('1')).toBe(0)
+			expect(ExpressionFunctions.acosh(2)).toBeCloseTo(1.3169578969248168)
+			expect(ExpressionFunctions.acosh(Infinity)).toBe(Infinity)
+			expect(ExpressionFunctions.acosh(undefined)).toBe(NaN)
+		})
+
+		it('atanh', () => {
+			expect(ExpressionFunctions.atanh(0)).toBe(0)
+			expect(ExpressionFunctions.atanh('0')).toBe(0)
+			expect(ExpressionFunctions.atanh(0.5)).toBeCloseTo(0.54930614433405489)
+			expect(ExpressionFunctions.atanh(-0.5)).toBeCloseTo(-0.54930614433405489)
+			expect(ExpressionFunctions.atanh(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.atanh(undefined)).toBe(NaN)
+		})
 	})
 
 	describe('string', () => {

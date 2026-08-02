@@ -118,6 +118,12 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	sin: (v) => Math.sin(v),
 	cos: (v) => Math.cos(v),
 	tan: (v) => Math.tan(v),
+	asin: (v) => Math.asin(v),
+	acos: (v) => Math.acos(v),
+	atan: (v) => Math.atan(v),
+	asinh: (v) => Math.asinh(v),
+	acosh: (v) => Math.acosh(v),
+	atanh: (v) => Math.atanh(v),
 
 	// String operations
 	trim: (v) => toString(v).trim(),
