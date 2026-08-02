@@ -238,6 +238,34 @@ describe('functions', () => {
 			expect(ExpressionFunctions.pow(2, -1)).toBe(0.5)
 			expect(ExpressionFunctions.pow(2, undefined)).toBe(NaN)
 		})
+
+		it('sin', () => {
+			expect(ExpressionFunctions.sin(0)).toBe(0)
+			expect(ExpressionFunctions.sin('0')).toBe(0)
+			expect(ExpressionFunctions.sin(PI / 2)).toBe(1)
+			expect(ExpressionFunctions.sin(-PI / 2)).toBe(-1)
+			expect(ExpressionFunctions.sin(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.sin(undefined)).toBe(NaN)
+		})
+
+		it('cos', () => {
+			expect(ExpressionFunctions.cos(0)).toBe(1)
+			expect(ExpressionFunctions.cos('0')).toBe(1)
+			expect(ExpressionFunctions.cos(PI / 2)).toBe(0)
+			expect(ExpressionFunctions.cos(-PI / 2)).toBe(0)
+			expect(ExpressionFunctions.cos(PI)).toBe(-1)
+			expect(ExpressionFunctions.cos(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.cos(undefined)).toBe(NaN)
+		})
+
+		it('tan', () => {
+			expect(ExpressionFunctions.tan(0)).toBe(0)
+			expect(ExpressionFunctions.tan('0')).toBe(0)
+			expect(ExpressionFunctions.tan(PI / 4)).toBe(1)
+			expect(ExpressionFunctions.tan(-PI / 4)).toBe(-1)
+			expect(ExpressionFunctions.tan(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.tan(undefined)).toBe(NaN)
+		})
 	})
 
 	describe('string', () => {

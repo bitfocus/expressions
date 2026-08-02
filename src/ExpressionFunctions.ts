@@ -115,6 +115,9 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	exp: (v) => Math.exp(v),
 	sqrt: (v) => Math.sqrt(v),
 	pow: (base, exponent) => Math.pow(base, exponent),
+	sin: (v) => Math.sin(v),
+	cos: (v) => Math.cos(v),
+	tan: (v) => Math.tan(v),
 
 	// String operations
 	trim: (v) => toString(v).trim(),
