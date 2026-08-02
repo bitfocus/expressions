@@ -236,7 +236,7 @@ describe('functions', () => {
 			expect(ExpressionFunctions.cbrt(0)).toBe(0)
 			expect(ExpressionFunctions.cbrt(8)).toBe(2)
 			expect(ExpressionFunctions.cbrt('27')).toBe(3)
-			expect(ExpressionFunctions.cbrt(-1)).toBe(NaN)
+			expect(ExpressionFunctions.cbrt(-1)).toBeCloseTo(-1)
 			expect(ExpressionFunctions.cbrt(Infinity)).toBe(Infinity)
 			expect(ExpressionFunctions.cbrt(undefined)).toBe(NaN)
 		})
@@ -300,7 +300,7 @@ describe('functions', () => {
 			expect(ExpressionFunctions.atan('0')).toBe(0)
 			expect(ExpressionFunctions.atan(1)).toBeCloseTo(Math.PI / 4)
 			expect(ExpressionFunctions.atan(-1)).toBeCloseTo(-Math.PI / 4)
-			expect(ExpressionFunctions.atan(Infinity)).toBe(NaN)
+			expect(ExpressionFunctions.atan(Infinity)).toBeCloseTo(Math.PI / 2)
 			expect(ExpressionFunctions.atan(undefined)).toBe(NaN)
 		})
 
