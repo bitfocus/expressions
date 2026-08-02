@@ -228,7 +228,17 @@ describe('functions', () => {
 			expect(ExpressionFunctions.sqrt(9)).toBe(3)
 			expect(ExpressionFunctions.sqrt('16')).toBe(4)
 			expect(ExpressionFunctions.sqrt(-1)).toBe(NaN)
+			expect(ExpressionFunctions.sqrt(Infinity)).toBe(Infinity)
 			expect(ExpressionFunctions.sqrt(undefined)).toBe(NaN)
+		})
+
+		it('cbrt', () => {
+			expect(ExpressionFunctions.cbrt(0)).toBe(0)
+			expect(ExpressionFunctions.cbrt(8)).toBe(2)
+			expect(ExpressionFunctions.cbrt('27')).toBe(3)
+			expect(ExpressionFunctions.cbrt(-1)).toBe(NaN)
+			expect(ExpressionFunctions.cbrt(Infinity)).toBe(Infinity)
+			expect(ExpressionFunctions.cbrt(undefined)).toBe(NaN)
 		})
 
 		it('pow', () => {
