@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/bitfocus/expressions/compare/v0.7.0...v0.8.0) (2026-08-03)
+
+
+### Features
+
+* Add sin, cos and tan maths functions ([#17](https://github.com/bitfocus/expressions/issues/17)) ([496c7c1](https://github.com/bitfocus/expressions/commit/496c7c16c60f8378e416a70da7852ed51347cdd3))
+
 ## [0.7.0](https://github.com/bitfocus/expressions/compare/v0.6.0...v0.7.0) (2026-07-30)
 
 
