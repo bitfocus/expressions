@@ -3,9 +3,116 @@ import { countGraphemes } from 'unicode-segmenter/grapheme'
 import { getZonedDateParts, zonedTimeToUtc, type ZonedDateParts } from './Timezone.js'
 import { msToStamp, pad } from './Util.js'
 
+/*
+ * Arguments are whatever the expression evaluated to, so a function must never throw on their type - a
+ * throw fails the whole expression, and a variable that is not populated yet (common during startup)
+ * would take it down. The coercions below degrade instead, to '' / NaN / null / undefined.
+ */
+
+/** Never throws: values with no usable `toString` (`{ toString: 5 }`, a null-prototype object) give ''. */
 function toString(v: any): string {
 	if (v === undefined) return ''
-	return v + ''
+	if (typeof v === 'string') return v
+	try {
+		return String(v)
+	} catch (_e) {
+		return ''
+	}
+}
+
+/** Never throws: anything without a numeric form gives NaN, which the `Math` builtins propagate. */
+function toNumber(v: any): number {
+	try {
+		return Number(v)
+	} catch (_e) {
+		return NaN
+	}
+}
+
+/** As `toNumber`, but keeps `undefined` - an omitted slice end or search offset means "not given". */
+function toOptionalNumber(v: any): number | undefined {
+	return v === undefined ? undefined : toNumber(v)
+}
+
+/** `Math.max`/`Math.min` over the arguments, coercing safely. Matches them for NaN and for an empty list. */
+function pickNumeric(args: any[], pick: (a: number, b: number) => number, identity: number): number {
+	let result = identity
+	for (const arg of args) {
+		const num = toNumber(arg)
+		if (Number.isNaN(num)) return NaN
+		result = pick(result, num)
+	}
+	return result
+}
+
+/** An encoding name, or the default - Buffer throws on one it doesn't know. */
+function toBufferEncoding(enc: any): BufferEncoding {
+	const name = toString(enc)
+	return Buffer.isEncoding(name) ? name : 'latin1'
+}
+
+/** Apply a URI builtin, passing the input through when it raises a URIError (a lone surrogate, a stray %). */
+function applyUri(str: any, fn: (s: string) => string): string {
+	const input = toString(str)
+	try {
+		return fn(input)
+	} catch (_e) {
+		return input
+	}
+}
+
+interface TimeOfDay {
+	hours: number
+	minutes: number
+	seconds: number
+	/** So a result can be rendered in the same shape as its input */
+	hasSeconds: boolean
+}
+
+/**
+ * Parse a `HH:mm` or `HH:mm:ss` time-of-day, or null for anything else. Out-of-range components
+ * (`25:00`, `12:99`) are kept as-is, for `Date` to roll over as it always has.
+ */
+function parseTimeOfDay(v: any): TimeOfDay | null {
+	const parts = toString(v).trim().split(':')
+	if (parts.length !== 2 && parts.length !== 3) return null
+
+	const hours = toNumber(parts[0])
+	const minutes = toNumber(parts[1])
+	const seconds = parts.length === 3 ? toNumber(parts[2]) : 0
+	if (!Number.isFinite(hours) || !Number.isFinite(minutes) || !Number.isFinite(seconds)) return null
+
+	return { hours, minutes, seconds, hasSeconds: parts.length === 3 }
+}
+
+/**
+ * One end of a `timeDiff`: a full date-time (anything containing a `T`), or a time-of-day against today.
+ * Null if it is neither.
+ */
+function toInstant(v: any): number | null {
+	const text = toString(v).trim()
+
+	if (text.includes('T')) {
+		const parsed = new Date(text)
+		const ts = parsed.getTime()
+		return isNaN(ts) ? null : ts
+	}
+
+	const time = parseTimeOfDay(text)
+	if (!time) return null
+
+	const date = new Date()
+	date.setHours(time.hours, time.minutes, time.seconds, 0)
+	const ts = date.getTime()
+	return isNaN(ts) ? null : ts
+}
+
+/**
+ * Only a non-empty string can be a format; anything else uses the default rather than being stringified
+ * into one `msToStamp` would reject. A malformed string format is still its error to report.
+ */
+function toStampFormat(type: any, fallback: string): string {
+	return typeof type === 'string' && type ? type : fallback
 }
 
 function assertFunction(fn: any, name: string): void {
@@ -83,54 +190,54 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 
 	// Number operations
 	// TODO: round to fractionals, without fp issues
-	round: (v) => Math.round(v),
-	floor: (v) => Math.floor(v),
-	ceil: (v) => Math.ceil(v),
-	abs: (v) => Math.abs(v),
-	fromRadix: (v, radix) => parseInt(v, radix || 10),
+	round: (v) => Math.round(toNumber(v)),
+	floor: (v) => Math.floor(toNumber(v)),
+	ceil: (v) => Math.ceil(toNumber(v)),
+	abs: (v) => Math.abs(toNumber(v)),
+	fromRadix: (v, radix) => parseInt(toString(v), toNumber(radix) || 10),
 	toRadix: (v, radix) => {
 		// Clamp the radix to the integer range supported by toString, to avoid a RangeError
-		radix = Math.min(36, Math.max(2, Math.floor(Number(radix)) || 10))
-		return Number(v).toString(radix)
+		const clamped = Math.min(36, Math.max(2, Math.floor(toNumber(radix)) || 10))
+		return toNumber(v).toString(clamped)
 	},
 	// Clamp dp to the range supported by Number#toFixed, to avoid a RangeError
-	toFixed: (v, dp) => Number(v).toFixed(Math.min(100, Math.max(0, dp || 0))),
+	toFixed: (v, dp) => toNumber(v).toFixed(Math.min(100, Math.max(0, toNumber(dp) || 0))),
 	isNumber: (v) => {
 		if (typeof v === 'number' || typeof v === 'bigint') return !Number.isNaN(v)
 		// Reject blank strings, which Number() would coerce to 0
 		if (typeof v === 'string') return v.trim() !== '' && !isNaN(Number(v))
 		return false
 	},
-	max: (...args) => Math.max(...args),
-	min: (...args) => Math.min(...args),
+	max: (...args) => pickNumeric(args, Math.max, -Infinity),
+	min: (...args) => pickNumeric(args, Math.min, Infinity),
 	randomInt: (min = 0, max = 10) => {
-		min = Number(min)
-		max = Number(max)
+		min = toNumber(min)
+		max = toNumber(max)
 		if (max < min) [min, max] = [max, min]
 		// Use floor over a [0, n+1) range so that min and max are as likely as interior values
 		return min + Math.floor(Math.random() * (max - min + 1))
 	},
-	log: (v, base) => (base === undefined ? Math.log(v) : Math.log(v) / Math.log(base)),
-	log10: (v) => Math.log10(v),
-	exp: (v) => Math.exp(v),
-	sqrt: (v) => Math.sqrt(v),
-	cbrt: (v) => Math.cbrt(v),
-	pow: (base, exponent) => Math.pow(base, exponent),
-	sin: (v) => Math.sin(v),
-	cos: (v) => Math.cos(v),
-	tan: (v) => Math.tan(v),
-	asin: (v) => Math.asin(v),
-	acos: (v) => Math.acos(v),
-	atan: (v) => Math.atan(v),
-	asinh: (v) => Math.asinh(v),
-	acosh: (v) => Math.acosh(v),
-	atanh: (v) => Math.atanh(v),
+	log: (v, base) => (base === undefined ? Math.log(toNumber(v)) : Math.log(toNumber(v)) / Math.log(toNumber(base))),
+	log10: (v) => Math.log10(toNumber(v)),
+	exp: (v) => Math.exp(toNumber(v)),
+	sqrt: (v) => Math.sqrt(toNumber(v)),
+	cbrt: (v) => Math.cbrt(toNumber(v)),
+	pow: (base, exponent) => Math.pow(toNumber(base), toNumber(exponent)),
+	sin: (v) => Math.sin(toNumber(v)),
+	cos: (v) => Math.cos(toNumber(v)),
+	tan: (v) => Math.tan(toNumber(v)),
+	asin: (v) => Math.asin(toNumber(v)),
+	acos: (v) => Math.acos(toNumber(v)),
+	atan: (v) => Math.atan(toNumber(v)),
+	asinh: (v) => Math.asinh(toNumber(v)),
+	acosh: (v) => Math.acosh(toNumber(v)),
+	atanh: (v) => Math.atanh(toNumber(v)),
 
 	// String operations
 	trim: (v) => toString(v).trim(),
 	strlen: (v) => toString(v).length,
 	substr: (str, start, end) => {
-		return toString(str).slice(start, end)
+		return toString(str).slice(toOptionalNumber(start), toOptionalNumber(end))
 	},
 	split: (str, separator) => {
 		if (separator === undefined) {
@@ -146,10 +253,10 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 		return toString(str).includes(toString(arg))
 	},
 	indexOf: (str, arg, offset) => {
-		return toString(str).indexOf(toString(arg), offset)
+		return toString(str).indexOf(toString(arg), toOptionalNumber(offset))
 	},
 	lastIndexOf: (str, arg, offset) => {
-		return toString(str).lastIndexOf(toString(arg), offset)
+		return toString(str).lastIndexOf(toString(arg), toOptionalNumber(offset))
 	},
 	toUpperCase: (str) => {
 		return toString(str).toUpperCase()
@@ -164,34 +271,24 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 		return toString(a).localeCompare(toString(b))
 	},
 	decode: (str, enc) => {
-		if (enc === undefined) {
-			enc = 'latin1'
-		} else {
-			enc = '' + enc
-		}
-		return Buffer.from(toString(str), enc).toString('latin1')
+		return Buffer.from(toString(str), toBufferEncoding(enc)).toString('latin1')
 	},
 	encode: (str, enc) => {
-		if (enc === undefined) {
-			enc = 'latin1'
-		} else {
-			enc = '' + enc
-		}
-		return Buffer.from(toString(str)).toString(enc)
+		return Buffer.from(toString(str)).toString(toBufferEncoding(enc))
 	},
 
 	encodeURI: (str) => {
-		return encodeURI(toString(str))
+		return applyUri(str, encodeURI)
 	},
 	decodeURI: (str) => {
-		return decodeURI(toString(str))
+		return applyUri(str, decodeURI)
 	},
 
 	encodeURIComponent: (str) => {
-		return encodeURIComponent(toString(str))
+		return applyUri(str, encodeURIComponent)
 	},
 	decodeURIComponent: (str) => {
-		return decodeURIComponent(toString(str))
+		return applyUri(str, decodeURIComponent)
 	},
 
 	// Bool operations
@@ -211,11 +308,17 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 			}
 		}
 
-		const value = JSONPath({
-			wrap: false,
-			path: toString(path),
-			json: obj,
-		})
+		let value: any
+		try {
+			value = JSONPath({
+				wrap: false,
+				path: toString(path),
+				json: obj,
+			})
+		} catch (_e) {
+			// A malformed path matches nothing
+			return undefined
+		}
 
 		if (shouldParseInput && typeof value !== 'number' && typeof value !== 'string' && value) {
 			try {
@@ -247,11 +350,11 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	},
 	arrayIndexOf: (arr, val, offset) => {
 		if (!Array.isArray(arr)) return -1
-		return arr.indexOf(val, offset)
+		return arr.indexOf(val, toOptionalNumber(offset))
 	},
 	arrayLastIndexOf: (arr, val, offset) => {
 		if (!Array.isArray(arr)) return -1
-		return arr.lastIndexOf(val, offset ?? arr.length)
+		return arr.lastIndexOf(val, toOptionalNumber(offset) ?? arr.length)
 	},
 
 	// Array iteration. Callbacks receive (value, index). When the callback is an expression-defined
@@ -303,12 +406,21 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	arraySort: (arr, fn) => {
 		if (!Array.isArray(arr)) return undefined
 		const copy = [...arr]
-		if (fn === undefined) return copy.sort()
+		if (fn === undefined) {
+			// The default sort orders by string form; go through the safe coercion so one bad element
+			// cannot fail the whole sort
+			return copy.sort((a, b) => {
+				const aStr = toString(a)
+				const bStr = toString(b)
+				return aStr < bStr ? -1 : aStr > bStr ? 1 : 0
+			})
+		}
 		assertFunction(fn, 'arraySort')
-		return copy.sort((a, b) => Number(fn(a, b)))
+		return copy.sort((a, b) => toNumber(fn(a, b)))
 	},
 	arrayReverse: (arr) => (Array.isArray(arr) ? [...arr].reverse() : undefined),
-	arraySlice: (arr, start, end) => (Array.isArray(arr) ? arr.slice(start, end) : undefined),
+	arraySlice: (arr, start, end) =>
+		Array.isArray(arr) ? arr.slice(toOptionalNumber(start), toOptionalNumber(end)) : undefined,
 	arrayConcat: (...arrs) => ([] as any[]).concat(...arrs.map((arr) => (Array.isArray(arr) ? arr : [arr]))),
 	arrayFlat: (arr) => (Array.isArray(arr) ? arr.flat() : undefined),
 	objectKeys: (obj) => (obj && typeof obj === 'object' ? Object.keys(obj) : []),
@@ -317,7 +429,7 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	// Time operations
 	unixNow: () => Date.now(),
 	timestampToSeconds: (str) => {
-		const match = (str + '').match(/^(\d+):(\d+):(\d+)$/i)
+		const match = toString(str).match(/^(\d+):(\d+):(\d+)$/i)
 		if (match) {
 			return Number(match[1]) * 3600 + Number(match[2]) * 60 + Number(match[3])
 		} else {
@@ -325,48 +437,54 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 		}
 	},
 	secondsToTimestamp: (v, type) => {
-		type = type ? type : 'nHH:mm:ss'
-		v = v * 1000
-		return msToStamp(v, type)
+		return msToStamp(toNumber(v) * 1000, toStampFormat(type, 'nHH:mm:ss'))
 	},
 	msToTimestamp: (v, type) => {
-		type = type ? type : 'nmm:ss.S'
-		return msToStamp(v, type)
+		return msToStamp(toNumber(v), toStampFormat(type, 'nmm:ss.S'))
 	},
 	timeOffset: (time, offset, hr12 = false) => {
+		// Anything that isn't a time-of-day has nothing to shift
+		const base = parseTimeOfDay(time)
+		if (!base) return ''
+
 		const date = new Date()
+		date.setHours(base.hours, base.minutes, base.seconds, 0)
 
-		date.setHours(time.split(':')[0])
-		date.setMinutes(time.split(':')[1])
-		date.setSeconds(time.split(':')[2] || 0)
-
-		let diff = offset
+		let offsetHours = 0
+		let offsetMinutes = 0
+		let offsetSeconds = 0
 
 		if (typeof offset === 'string') {
-			let hours = 0
-			let minutes = 0
-			let seconds = 0
+			let diff = offset
 			const negative = diff.startsWith('-')
 
 			if (diff.startsWith('+') || diff.startsWith('-')) {
 				diff = diff.substr(1)
 			}
 
-			if (offset.includes(':')) {
+			if (diff.includes(':')) {
 				const split = diff.split(':')
-				hours = parseInt(split[0]) || 0
-				minutes = parseInt(split[1]) || 0
-				seconds = parseInt(split[2]) || 0
+				offsetHours = parseInt(split[0]) || 0
+				offsetMinutes = parseInt(split[1]) || 0
+				offsetSeconds = parseInt(split[2]) || 0
 			} else {
-				hours = parseInt(diff) || 0
+				offsetHours = parseInt(diff) || 0
 			}
 
-			date.setHours(date.getHours() + (negative ? -hours : hours))
-			date.setMinutes(date.getMinutes() + (negative ? -minutes : minutes))
-			date.setSeconds(date.getSeconds() + (negative ? -seconds : seconds))
+			if (negative) {
+				offsetHours = -offsetHours
+				offsetMinutes = -offsetMinutes
+				offsetSeconds = -offsetSeconds
+			}
 		} else {
-			date.setHours(date.getHours() + diff)
+			// A missing or non-numeric offset is no offset, rather than an invalid date
+			const hours = toNumber(offset)
+			offsetHours = Number.isFinite(hours) ? hours : 0
 		}
+
+		date.setHours(date.getHours() + offsetHours)
+		date.setMinutes(date.getMinutes() + offsetMinutes)
+		date.setSeconds(date.getSeconds() + offsetSeconds)
 
 		const hours24 = date.getHours()
 		// In 12 hour mode, map 0 -> 12 (midnight) and 13-23 -> 1-11, and append an AM/PM marker
@@ -374,37 +492,15 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 		const displayMinutes = pad(date.getMinutes(), '0', 2)
 		const displaySeconds = pad(date.getSeconds(), '0', 2)
 
-		if (time.split(':').length === 2) {
-			return `${displayHours}:${displayMinutes}`
-		} else if (time.split(':').length === 3) {
-			return `${displayHours}:${displayMinutes}:${displaySeconds}`
-		} else {
-			return ''
-		}
+		// `HH:mm` in, `HH:mm` out
+		return base.hasSeconds ? `${displayHours}:${displayMinutes}:${displaySeconds}` : `${displayHours}:${displayMinutes}`
 	},
 	timeDiff: (from, to) => {
-		let diff = 0
-		let fromDate = new Date()
-		let toDate = new Date()
+		const fromTime = toInstant(from)
+		const toTime = toInstant(to)
+		if (fromTime === null || toTime === null) return 'ERR'
 
-		if (from.includes('T')) {
-			fromDate = new Date(from)
-		} else {
-			fromDate.setHours(from.split(':')[0])
-			fromDate.setMinutes(from.split(':')[1])
-			fromDate.setSeconds(from.split(':')[2] || 0)
-		}
-
-		if (to.includes('T')) {
-			toDate = new Date(to)
-		} else {
-			toDate.setHours(to.split(':')[0])
-			toDate.setMinutes(to.split(':')[1])
-			toDate.setSeconds(to.split(':')[2] || 0)
-		}
-
-		diff = toDate.getTime() - fromDate.getTime()
-
+		const diff = toTime - fromTime
 		if (isNaN(diff)) return 'ERR'
 
 		return Math.round(diff / 1000)
@@ -530,7 +626,7 @@ function buildDateFunctions(getDefaultTimezone: () => string | undefined): Recor
 				return null
 			}
 
-			amount = Number(amount)
+			amount = toNumber(amount)
 			if (!Number.isFinite(amount)) {
 				return null
 			}
@@ -602,10 +698,10 @@ export function buildBlinkFunction(
 	return (interval, dutyCycle) => {
 		// Clamp before checking, as in `oscillate`: `Math.max(100, NaN)` is NaN, so a non-numeric interval
 		// reads as off rather than silently becoming the minimum interval.
-		const intervalMs = Math.max(MIN_CLOCK_PERIOD_MS, Number(interval))
+		const intervalMs = Math.max(MIN_CLOCK_PERIOD_MS, toNumber(interval))
 		if (isNaN(intervalMs)) return 0
 
-		const rawDutyCycle = Number(dutyCycle)
+		const rawDutyCycle = toNumber(dutyCycle)
 		const clampedDutyCycle = isNaN(rawDutyCycle) ? BLINK_DEFAULT_DUTY_CYCLE : Math.min(Math.max(rawDutyCycle, 0), 1)
 
 		return isOn(intervalMs, clampedDutyCycle) ? 1 : 0
@@ -642,16 +738,16 @@ export interface OscillateClock {
  * Rebuilt per evaluation so the clock stays current, in the same way as the date functions.
  */
 export function buildOscillateFunction(clock: OscillateClock): (period: any, waveform?: any, phase?: any) => number {
-	const granularityMs = Math.max(0, Number(clock.granularityMs) || 0)
+	const granularityMs = Math.max(0, toNumber(clock.granularityMs) || 0)
 	const minPeriodMs = Math.max(MIN_CLOCK_PERIOD_MS, granularityMs)
 
 	return (period, waveform, phase) => {
 		// Note: clamp first, then check. `Math.max(100, NaN)` is NaN, so a non-numeric period yields 0
 		// rather than silently becoming the minimum period.
-		const periodMs = Math.max(minPeriodMs, Number(period))
+		const periodMs = Math.max(minPeriodMs, toNumber(period))
 		if (isNaN(periodMs)) return 0
 
-		const phaseOffset = Number(phase)
+		const phaseOffset = toNumber(phase)
 		const raw = clock.getCycleFraction(periodMs) + (isNaN(phaseOffset) ? 0 : phaseOffset)
 
 		// Wrap into 0-1, tolerating both out-of-range clocks and negative phase offsets
