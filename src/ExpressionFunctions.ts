@@ -115,7 +115,10 @@ function toStampFormat(type: any, fallback: string): string {
 	return typeof type === 'string' && type ? type : fallback
 }
 
-function assertFunction(fn: any, name: string): void {
+/** The shape of a callback argument, once `assertFunction` has vouched for it. */
+type ExpressionCallback = (...args: any[]) => any
+
+function assertFunction(fn: unknown, name: string): asserts fn is ExpressionCallback {
 	if (typeof fn !== 'function') throw new Error(`${name}() requires a function as its callback argument`)
 }
 
@@ -162,7 +165,7 @@ const dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
  * the small set of timezone-dependent date functions (see buildDateFunctions) is rebuilt per evaluation,
  * since it closes over the per-call timezone getter.
  */
-const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
+const STATIC_FUNCTIONS: Record<string, (...args: unknown[]) => any> = {
 	// General operations
 	length: (v) => {
 		let len = 0
@@ -211,11 +214,11 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	max: (...args) => pickNumeric(args, Math.max, -Infinity),
 	min: (...args) => pickNumeric(args, Math.min, Infinity),
 	randomInt: (min = 0, max = 10) => {
-		min = toNumber(min)
-		max = toNumber(max)
-		if (max < min) [min, max] = [max, min]
+		let low = toNumber(min)
+		let high = toNumber(max)
+		if (high < low) [low, high] = [high, low]
 		// Use floor over a [0, n+1) range so that min and max are as likely as interior values
-		return min + Math.floor(Math.random() * (max - min + 1))
+		return low + Math.floor(Math.random() * (high - low + 1))
 	},
 	log: (v, base) => (base === undefined ? Math.log(toNumber(v)) : Math.log(toNumber(v)) / Math.log(toNumber(base))),
 	log10: (v) => Math.log10(toNumber(v)),
@@ -300,9 +303,10 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	// Object/array operations
 	jsonpath: (obj, path) => {
 		const shouldParseInput = typeof obj === 'string'
-		if (shouldParseInput) {
+		let json: any = obj
+		if (typeof json === 'string') {
 			try {
-				obj = JSON.parse(obj)
+				json = JSON.parse(json)
 			} catch (_e) {
 				// Ignore
 			}
@@ -313,7 +317,7 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 			value = JSONPath({
 				wrap: false,
 				path: toString(path),
-				json: obj,
+				json,
 			})
 		} catch (_e) {
 			// A malformed path matches nothing
@@ -521,7 +525,7 @@ const STATIC_FUNCTIONS: Record<string, (...args: any[]) => any> = {
  * Rebuilt per evaluation so the getter stays current. Kept separate from the (memoized) static functions
  * so the hot path only rebuilds this small set rather than the full ~60 closures.
  */
-function buildDateFunctions(getDefaultTimezone: () => string | undefined): Record<string, (...args: any[]) => any> {
+function buildDateFunctions(getDefaultTimezone: () => string | undefined): Record<string, (...args: unknown[]) => any> {
 	const resolveTz = (tz: any): string | undefined => (typeof tz === 'string' && tz ? tz : getDefaultTimezone())
 
 	// Add whole calendar units (day/month/year) to `d` as observed in the factory timezone, holding
@@ -626,46 +630,46 @@ function buildDateFunctions(getDefaultTimezone: () => string | undefined): Recor
 				return null
 			}
 
-			amount = toNumber(amount)
-			if (!Number.isFinite(amount)) {
+			const by = toNumber(amount)
+			if (!Number.isFinite(by)) {
 				return null
 			}
 
-			unit = toString(unit).toLowerCase()
+			const field = toString(unit).toLowerCase()
 
 			// Time units are fixed durations, so adding them is plain instant arithmetic (and inherently
 			// timezone-independent). Calendar units (day and larger) instead hold the wall-clock
 			// time-of-day in the factory timezone, so they go through `calendarAdd` to stay correct
 			// across DST boundaries.
 			let ts: number | null
-			switch (unit) {
+			switch (field) {
 				case 'second':
 				case 'seconds':
-					ts = d.getTime() + amount * 1000
+					ts = d.getTime() + by * 1000
 					break
 				case 'minute':
 				case 'minutes':
-					ts = d.getTime() + amount * 60_000
+					ts = d.getTime() + by * 60_000
 					break
 				case 'hour':
 				case 'hours':
-					ts = d.getTime() + amount * 3_600_000
+					ts = d.getTime() + by * 3_600_000
 					break
 				case 'day':
 				case 'days':
-					ts = calendarAdd(d, 'day', amount)
+					ts = calendarAdd(d, 'day', by)
 					break
 				case 'week':
 				case 'weeks':
-					ts = calendarAdd(d, 'day', amount * 7)
+					ts = calendarAdd(d, 'day', by * 7)
 					break
 				case 'month':
 				case 'months':
-					ts = calendarAdd(d, 'month', amount)
+					ts = calendarAdd(d, 'month', by)
 					break
 				case 'year':
 				case 'years':
-					ts = calendarAdd(d, 'year', amount)
+					ts = calendarAdd(d, 'year', by)
 					break
 				default:
 					return null
