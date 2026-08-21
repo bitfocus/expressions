@@ -304,7 +304,7 @@ const STATIC_FUNCTIONS: Record<string, (...args: unknown[]) => any> = {
 	jsonpath: (obj, path) => {
 		const shouldParseInput = typeof obj === 'string'
 		let json: any = obj
-		if (typeof json === 'string') {
+		if (shouldParseInput) {
 			try {
 				json = JSON.parse(json)
 			} catch (_e) {
