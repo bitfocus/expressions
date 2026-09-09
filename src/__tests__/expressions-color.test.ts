@@ -57,19 +57,6 @@ describe('colour functions', () => {
 			expect(ExpressionFunctions.hsv(120, 100, 100, 0.5)).toBe('rgba(0, 255, 0, 0.5)')
 		})
 
-		it('hwb', () => {
-			expect(ExpressionFunctions.hwb(120, 20, 30)).toBe('rgb(51, 179, 51)')
-			expect(ExpressionFunctions.hwb(120, 20, 30, 0.5)).toBe('rgba(51, 179, 51, 0.5)')
-		})
-
-		it('cmyk', () => {
-			expect(ExpressionFunctions.cmyk(0, 54, 100, 25)).toBe('rgb(191, 88, 0)')
-			expect(ExpressionFunctions.cmyk(0, 0, 0, 0)).toBe('rgb(255, 255, 255)')
-			expect(ExpressionFunctions.cmyk(0, 54, 100, 25, 0.5)).toBe('rgba(191, 88, 0, 0.5)')
-			// cmyk has four channels, so three is a short call rather than a colour
-			expect(ExpressionFunctions.cmyk(0, 54, 100)).toBe(null)
-		})
-
 		it('rejects calls that are missing channels', () => {
 			expect(ExpressionFunctions.rgb()).toBe(null)
 			expect(ExpressionFunctions.rgb(1, 2)).toBe(null)
@@ -97,8 +84,6 @@ describe('colour functions', () => {
 			expect(ExpressionFunctions.rgb('#369')).toBe('rgb(51, 102, 153)')
 			expect(ExpressionFunctions.rgb('#336699cc')).toBe('rgba(51, 102, 153, 0.8)')
 			expect(ExpressionFunctions.rgb('rebeccapurple')).toBe('rgb(102, 51, 153)')
-			expect(ExpressionFunctions.rgb('hwb(120 20% 30%)')).toBe('rgb(51, 179, 51)')
-			expect(ExpressionFunctions.rgb('device-cmyk(0% 54% 100% 25%)')).toBe('rgb(191, 88, 0)')
 			// The modern space-separated CSS syntax, alongside the legacy comma-separated one
 			expect(ExpressionFunctions.rgb('rgb(1 2 3 / 50%)')).toBe('rgba(1, 2, 3, 0.5)')
 		})
@@ -117,8 +102,6 @@ describe('colour functions', () => {
 		it('round-trips through the channel objects', () => {
 			expect(ExpressionFunctions.rgb(ExpressionFunctions.colorToHsl('#336699'))).toBe('rgb(51, 102, 153)')
 			expect(ExpressionFunctions.hsl(ExpressionFunctions.colorToRgb('#336699'))).toBe('hsl(210, 50%, 40%)')
-			expect(ExpressionFunctions.rgb(ExpressionFunctions.colorToHwb('#336699'))).toBe('rgb(51, 102, 153)')
-			expect(ExpressionFunctions.rgb(ExpressionFunctions.colorToCmyk('#bf5700'))).toBe('rgb(191, 88, 0)')
 		})
 
 		it('gives null for things that are not colours', () => {
@@ -149,16 +132,6 @@ describe('colour functions', () => {
 		it('colorToHsv', () => {
 			expect(ExpressionFunctions.colorToHsv('#336699')).toEqual({ h: 210, s: 67, v: 60, a: 1 })
 			expect(ExpressionFunctions.colorToHsv('nope')).toBe(null)
-		})
-
-		it('colorToHwb', () => {
-			expect(ExpressionFunctions.colorToHwb('#336699')).toEqual({ h: 210, w: 20, b: 40, a: 1 })
-			expect(ExpressionFunctions.colorToHwb('nope')).toBe(null)
-		})
-
-		it('colorToCmyk', () => {
-			expect(ExpressionFunctions.colorToCmyk('#bf5700')).toEqual({ c: 0, m: 54, y: 100, k: 25, a: 1 })
-			expect(ExpressionFunctions.colorToCmyk('nope')).toBe(null)
 		})
 
 		it('colorToHex', () => {

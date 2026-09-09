@@ -1,18 +1,15 @@
 import { colord, extend, type AnyColor, type Colord, type Plugin } from 'colord'
-import cmykPlugin from 'colord/plugins/cmyk'
-import hwbPlugin from 'colord/plugins/hwb'
 import labPlugin from 'colord/plugins/lab'
 import mixPlugin from 'colord/plugins/mix'
 import namesPlugin from 'colord/plugins/names'
 
-// `names` adds the CSS colour keywords ('red', 'rebeccapurple'), `hwb` and `cmyk` add those models,
-// and `mix` backs colorMix() - which interpolates in CIE Lab, so `lab` has to be loaded too even
-// though no Lab function is exposed here.
+// `names` adds the CSS colour keywords ('red', 'rebeccapurple'), and `mix` backs colorMix() - which
+// interpolates in CIE Lab, so `lab` has to be loaded too even though no Lab function is exposed here.
 //
 // The casts work around colord's typings: its plugins are declared in CommonJS-format `.d.ts` files, so
 // under node16 resolution TypeScript types each default import as the whole module namespace, even
 // though the ESM build that actually gets loaded default-exports the plugin itself.
-extend([namesPlugin, hwbPlugin, cmykPlugin, mixPlugin, labPlugin] as unknown as Plugin[])
+extend([namesPlugin, mixPlugin, labPlugin] as unknown as Plugin[])
 
 /**
  * Parse one channel of a colour model. Values may be plain numbers on the model's own scale
@@ -73,14 +70,14 @@ function toRgbString(color: Colord): string {
 
 /**
  * Build one of the colour-producing builtins. Called with a single argument it re-formats that colour,
- * whatever form it arrived in; called with the model's channels it builds the colour from them, taking
- * an optional trailing alpha. Two arguments is neither, and fails the same way an unparseable colour does.
+ * whatever form it arrived in; called with the model's three channels it builds the colour from them,
+ * taking an optional trailing alpha. Two arguments is neither, and fails the same way an unparseable
+ * colour does.
  *
  * Every one of these returns a CSS colour string, so the result can be dropped into anything that takes
  * a colour - and reads the same as the equivalent literal typed inside a string.
  */
 function buildColorFunction(
-	channelCount: number,
 	fromChannels: (args: any[]) => AnyColor,
 	format: (color: Colord) => string
 ): (...args: any[]) => string | null {
@@ -91,7 +88,7 @@ function buildColorFunction(
 		}
 
 		// Otherwise every channel of the model has to be there; a short call is a mistake, not a colour
-		if (args.length < channelCount) return null
+		if (args.length < 3) return null
 
 		const color = colord(fromChannels(args))
 		return color.isValid() ? format(color) : null
@@ -129,10 +126,10 @@ const DEFAULT_MIX_RATIO = 0.5
 /**
  * The colour expression functions.
  *
- * The producing half (`rgb`, `hsl`, `hsv`, `hwb`, `cmyk`) mirrors the CSS colour functions, so
- * `rgb(255, 0, 0)` written as an expression and `"rgb(255, 0, 0)"` written inside a string mean the same
- * thing. Models CSS has no function for (`hsv`, and `cmyk` outside of `device-cmyk()`) take their own
- * channels but hand back the equivalent `rgb()` string, so every result is a colour any consumer parses.
+ * The producing half (`rgb`, `hsl`, `hsv`) mirrors the CSS colour functions, so `rgb(255, 0, 0)` written
+ * as an expression and `"rgb(255, 0, 0)"` written inside a string mean the same thing. Models CSS has no
+ * function for (`hsv`) take their own channels but hand back the equivalent `rgb()` string, so every
+ * result is a colour any consumer parses.
  *
  * Called with a single argument instead of channels, each of them converts: `hsl('#336699')` is that
  * colour written as `hsl()`. The parsing half (`colorTo*`) goes the other way, splitting a colour into an
@@ -145,34 +142,15 @@ const DEFAULT_MIX_RATIO = 0.5
 export const COLOR_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	// Producing colour strings
 	rgb: buildColorFunction(
-		3,
 		([r, g, b, a]) => ({ r: channel(r, 255), g: channel(g, 255), b: channel(b, 255), a: alphaChannel(a) }),
 		toRgbString
 	),
 	hsl: buildColorFunction(
-		3,
 		([h, s, l, a]) => ({ h: channel(h, 360), s: channel(s, 100), l: channel(l, 100), a: alphaChannel(a) }),
 		(color) => color.toHslString()
 	),
 	hsv: buildColorFunction(
-		3,
 		([h, s, v, a]) => ({ h: channel(h, 360), s: channel(s, 100), v: channel(v, 100), a: alphaChannel(a) }),
-		toRgbString
-	),
-	hwb: buildColorFunction(
-		3,
-		([h, w, b, a]) => ({ h: channel(h, 360), w: channel(w, 100), b: channel(b, 100), a: alphaChannel(a) }),
-		toRgbString
-	),
-	cmyk: buildColorFunction(
-		4,
-		([c, m, y, k, a]) => ({
-			c: channel(c, 100),
-			m: channel(m, 100),
-			y: channel(y, 100),
-			k: channel(k, 100),
-			a: alphaChannel(a),
-		}),
 		toRgbString
 	),
 
@@ -180,8 +158,6 @@ export const COLOR_FUNCTIONS: Record<string, (...args: any[]) => any> = {
 	colorToRgb: buildColorConverter((color) => color.toRgb()),
 	colorToHsl: buildColorConverter((color) => color.toHsl()),
 	colorToHsv: buildColorConverter((color) => color.toHsv()),
-	colorToHwb: buildColorConverter((color) => color.toHwb()),
-	colorToCmyk: buildColorConverter((color) => color.toCmyk()),
 	colorToHex: buildColorConverter((color) => color.toHex()),
 	isColor: (value) => toColor(value) !== null,
 
