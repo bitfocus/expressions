@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0](https://github.com/bitfocus/expressions/compare/v1.0.1...v1.1.0) (2026-09-09)
+
+
+### Features
+
+* Add color manipulation functions to expressions ([#22](https://github.com/bitfocus/expressions/issues/22)) ([3f0b034](https://github.com/bitfocus/expressions/commit/3f0b03491512b9bc03e18a2d8696c6525ae3ca2d))
+* better locale support for dateFormat ([836b3bb](https://github.com/bitfocus/expressions/commit/836b3bb15fbf8b37e3036ea5fc5c4a8520ed99cc))
+
 ## [1.0.1](https://github.com/bitfocus/expressions/compare/v1.0.0...v1.0.1) (2026-08-21)
 
 
