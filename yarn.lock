@@ -106,7 +106,7 @@ __metadata:
     "@tsconfig/node22": "npm:^22.0.5"
     "@types/node": "npm:^22.20.1"
     acorn: "npm:^8.17.0"
-    colord: "npm:^2.10.0"
+    colord-for-expressions: "npm:colord@^2.10.0"
     eslint: "npm:^10.8.0"
     jsonpath-plus: "npm:^10.4.0"
     prettier: "npm:^3.9.6"
@@ -1077,7 +1077,7 @@ __metadata:
   languageName: node
   linkType: hard
 
-"colord@npm:^2.10.0":
+"colord-for-expressions@npm:colord@^2.10.0":
   version: 2.10.0
   resolution: "colord@npm:2.10.0"
   checksum: 10c0/2f5d1d1759124f593deca17bbbab8a88bdc3ab68bbcc88db76c1192d9a5d575db202badde044bf61789561fa0ed7a9eb895382becad1af27ec65934c216e9e04

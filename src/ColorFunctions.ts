@@ -1,7 +1,14 @@
-import { colord, extend, type AnyColor, type Colord, type Plugin } from 'colord'
-import labPlugin from 'colord/plugins/lab'
-import mixPlugin from 'colord/plugins/mix'
-import namesPlugin from 'colord/plugins/names'
+// colord is imported under a private alias ('colord-for-expressions' -> npm:colord) rather than the bare
+// 'colord' package. `extend()` below mutates colord's module-level singleton (the shared Colord
+// prototype and parser registry), and that singleton is per-resolved-package: importing under a
+// different name gives us our own copy that nothing else dedupes with. Without the alias, this
+// `extend()` would leak the `names` parser into every consumer's colord too - eg Companion's own
+// colord would start accepting CSS colour keywords where it deliberately doesn't. Keep these on the
+// alias; a bare 'colord' import here re-pollutes the global.
+import { colord, extend, type AnyColor, type Colord, type Plugin } from 'colord-for-expressions'
+import labPlugin from 'colord-for-expressions/plugins/lab'
+import mixPlugin from 'colord-for-expressions/plugins/mix'
+import namesPlugin from 'colord-for-expressions/plugins/names'
 
 // `names` adds the CSS colour keywords ('red', 'rebeccapurple'), and `mix` backs colorMix() - which
 // interpolates in CIE Lab, so `lab` has to be loaded too even though no Lab function is exposed here.
