@@ -23,8 +23,14 @@ function parseChannel(value: unknown, percentScale: number): number | null {
 		return Number.isFinite(percent) ? (percent / 100) * percentScale : null
 	}
 
-	const num = Number(value)
-	return Number.isFinite(num) ? num : null
+	// Values with no numeric form at all - a null-prototype object, or `{ toString: 5 }` - make Number()
+	// throw rather than give NaN, and a throw here would take the whole expression down
+	try {
+		const num = Number(value)
+		return Number.isFinite(num) ? num : null
+	} catch (_e) {
+		return null
+	}
 }
 
 /** A garbled channel falls back to 0, so it drops out rather than invalidating the whole colour. */
