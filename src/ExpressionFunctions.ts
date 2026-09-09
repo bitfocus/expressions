@@ -1,5 +1,6 @@
 import { JSONPath } from 'jsonpath-plus'
 import { countGraphemes } from 'unicode-segmenter/grapheme'
+import { COLOR_FUNCTIONS } from './ColorFunctions.js'
 import { getZonedDateParts, zonedTimeToUtc, type ZonedDateParts } from './Timezone.js'
 import { msToStamp, pad } from './Util.js'
 
@@ -614,6 +615,9 @@ const STATIC_FUNCTIONS: Record<string, (...args: unknown[]) => any> = {
 		const d = toDate(v)
 		return d ? d.getTime() : null
 	},
+
+	// Colour operations
+	...COLOR_FUNCTIONS,
 }
 
 /**
