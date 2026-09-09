@@ -64,8 +64,14 @@ function toColor(value: unknown): Colord | null {
 	if (typeof value === 'number') return colorFromNumber(value)
 	if (typeof value !== 'string' && (typeof value !== 'object' || value === null || Array.isArray(value))) return null
 
-	const color = colord(value as AnyColor)
-	return color.isValid() ? color : null
+	// colord reads the channels off an object as it parses, so a hostile one (a getter that throws) throws
+	// from in there - and a throw would take the whole expression down, not just this colour
+	try {
+		const color = colord(value as AnyColor)
+		return color.isValid() ? color : null
+	} catch (_e) {
+		return null
+	}
 }
 
 /** Formats a colour the way `colorTo*` and the manipulation functions hand it back. */

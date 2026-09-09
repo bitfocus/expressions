@@ -202,6 +202,46 @@ describe('colour functions', () => {
 		})
 	})
 
+	describe('coercion behaviour', () => {
+		// The values that make plain conversion throw rather than give NaN - see the argument guards test
+		const unconvertible = { toString: 5 }
+		const nullPrototype = Object.create(null)
+		const hostile = {
+			get r() {
+				throw new Error('boom')
+			},
+		}
+
+		it('treats a channel it cannot convert as zero', () => {
+			expect(ExpressionFunctions.rgb(unconvertible, 0, 0)).toBe('rgb(0, 0, 0)')
+			expect(ExpressionFunctions.rgb(nullPrototype, 255, 0)).toBe('rgb(0, 255, 0)')
+			expect(ExpressionFunctions.hsl(unconvertible, 50, 40)).toBe('hsl(0, 50%, 40%)')
+		})
+
+		it('leaves a colour opaque when the alpha cannot be converted', () => {
+			expect(ExpressionFunctions.rgb(255, 0, 0, unconvertible)).toBe('rgb(255, 0, 0)')
+			expect(ExpressionFunctions.colorAlpha('#ff0000', nullPrototype)).toBe('rgb(255, 0, 0)')
+		})
+
+		it('falls back to the default amount when it cannot be converted', () => {
+			expect(ExpressionFunctions.colorLighten('#808080', unconvertible)).toBe(
+				ExpressionFunctions.colorLighten('#808080')
+			)
+			expect(ExpressionFunctions.colorMix('#000000', '#ffffff', unconvertible)).toBe(
+				ExpressionFunctions.colorMix('#000000', '#ffffff')
+			)
+		})
+
+		it('gives null for an object that is not a colour, however hostile', () => {
+			expect(ExpressionFunctions.colorToRgb(unconvertible)).toBe(null)
+			expect(ExpressionFunctions.colorToRgb(nullPrototype)).toBe(null)
+			// colord reads the channels off the object as it parses, so this throws from inside it
+			expect(ExpressionFunctions.colorToRgb(hostile)).toBe(null)
+			expect(ExpressionFunctions.isColor(hostile)).toBe(false)
+			expect(ExpressionFunctions.rgb({ r: unconvertible, g: 0, b: 0 })).toBe(null)
+		})
+	})
+
 	describe('in expressions', () => {
 		it('produces a colour string usable as one', () => {
 			expect(run('rgb(255, 0, 0)')).toBe('rgb(255, 0, 0)')
