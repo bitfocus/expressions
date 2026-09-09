@@ -77,6 +77,9 @@ function truncateMilliseconds(v: number, length: number) {
  * @returns Formatted timestamp string
  */
 export function msToStamp(v: number, format: string): string {
+	// Treat an unusable value as zero, so the caller gets a stamp rather than one full of `NaN`
+	if (!Number.isFinite(v)) v = 0
+
 	const values = createTimeValues(v)
 
 	const result: string[] = []

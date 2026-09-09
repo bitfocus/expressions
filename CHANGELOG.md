@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.0.1](https://github.com/bitfocus/expressions/compare/v1.0.0...v1.0.1) (2026-08-21)
+
+
+### Bug Fixes
+
+* guard expression functions against unusable argument types ([#23](https://github.com/bitfocus/expressions/issues/23)) ([28e471a](https://github.com/bitfocus/expressions/commit/28e471ae530f06decfa02ddd31cd5b5524feb00e))
+
 ## [1.0.0](https://github.com/bitfocus/expressions/compare/v0.7.0...v1.0.0) (2026-08-03)
 
 
