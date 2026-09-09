@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.1.1](https://github.com/bitfocus/expressions/compare/v1.1.0...v1.1.1) (2026-09-09)
+
+
+### Bug Fixes
+
+* alias colord ([41eec04](https://github.com/bitfocus/expressions/commit/41eec042c50965067a90ea325e55abf8851d5ae8))
+
 ## [1.1.0](https://github.com/bitfocus/expressions/compare/v1.0.1...v1.1.0) (2026-09-09)
 
 
