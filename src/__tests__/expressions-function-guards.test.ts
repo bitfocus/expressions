@@ -92,7 +92,7 @@ describe('argument guards', () => {
 			call([])
 
 			// One position at a time, so each is guarded independently
-			for (let position = 0; position < 3; position++) {
+			for (let position = 0; position < 4; position++) {
 				if (position === callbackIndex) continue
 
 				// Reach far enough to fill the callback position, for a builtin that needs one

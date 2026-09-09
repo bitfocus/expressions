@@ -158,6 +158,105 @@ const monthShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep
 const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const dayShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
+interface LocaleDateNames {
+	monthNames: string[]
+	monthShort: string[]
+	dayNames: string[]
+	dayShort: string[]
+}
+
+const englishDateNames: LocaleDateNames = { monthNames, monthShort, dayNames, dayShort }
+
+const localeDateNamesCache = new Map<string, LocaleDateNames>()
+
+/**
+ * Normalise a user-supplied locale argument. Returns `undefined` when no usable locale was given, which
+ * makes the caller fall back to the runtime's default locale -- the same behaviour as omitting the
+ * argument entirely.
+ *
+ * Well-formed but unsupported tags (`'xx'`, `'zz-ZZ'`) do not throw; `Intl` silently resolves them to the
+ * default locale. They are rejected here so that an unusable locale behaves as if it had not been passed,
+ * rather than appearing to work. Malformed tags (`'not a locale'`, `'en-XYZ'`) throw and are rejected too.
+ *
+ * Rejecting unsupported tags here also bounds `localeDateNamesCache`: the locale can come from a variable,
+ * so without this an expression could insert an entry per distinct junk string.
+ */
+function resolveLocale(locale: any): string | undefined {
+	if (locale === undefined || locale === null) return undefined
+	const str = toString(locale).trim()
+	if (!str) return undefined
+
+	try {
+		return Intl.DateTimeFormat.supportedLocalesOf(str).length > 0 ? str : undefined
+	} catch {
+		return undefined
+	}
+}
+
+/**
+ * Localized month/weekday names for the given locale, cached per locale. A `locale` of `undefined` follows
+ * the runtime's default locale, matching the `internal:date_weekday` variable (which uses
+ * `Date.toLocaleString`). Only the numeric month/weekday index matters here, so the names are
+ * timezone-independent; the caller supplies an already timezone-adjusted index. Falls back to English only
+ * if `Intl` is unavailable -- callers pass locales through `resolveLocale` first.
+ *
+ * Keyed on the locale string rather than the locale `Intl` resolves it to, so that a cache hit costs a map
+ * lookup and no `Intl.DateTimeFormat` construction. Equivalent spellings ('fr' and 'fr-FR') therefore get
+ * their own entries; `resolveLocale` bounds the set of keys that can get this far.
+ */
+function getLocaleDateNames(locale: string | undefined): LocaleDateNames {
+	const cacheKey = locale ?? ''
+	const existing = localeDateNamesCache.get(cacheKey)
+	if (existing) return existing
+
+	let names: LocaleDateNames
+	try {
+		const monthLong = new Intl.DateTimeFormat(locale, { month: 'long', timeZone: 'UTC' })
+		const monthShortFmt = new Intl.DateTimeFormat(locale, { month: 'short', timeZone: 'UTC' })
+		const weekdayLong = new Intl.DateTimeFormat(locale, { weekday: 'long', timeZone: 'UTC' })
+		const weekdayShortFmt = new Intl.DateTimeFormat(locale, { weekday: 'short', timeZone: 'UTC' })
+
+		const months: string[] = []
+		const monthsShort: string[] = []
+		for (let m = 0; m < 12; m++) {
+			const date = new Date(Date.UTC(2021, m, 15))
+			months.push(monthLong.format(date))
+			monthsShort.push(monthShortFmt.format(date))
+		}
+
+		const days: string[] = []
+		const daysShort: string[] = []
+		for (let d = 0; d < 7; d++) {
+			// 2021-08-01 (UTC) is a Sunday, so index 0 lines up with the weekday index convention
+			const date = new Date(Date.UTC(2021, 7, 1 + d))
+			days.push(weekdayLong.format(date))
+			daysShort.push(weekdayShortFmt.format(date))
+		}
+
+		names = { monthNames: months, monthShort: monthsShort, dayNames: days, dayShort: daysShort }
+	} catch {
+		names = englishDateNames
+	}
+
+	localeDateNamesCache.set(cacheKey, names)
+	return names
+}
+
+/**
+ * `resolveLocale` for the injected default locale. `buildDateFunctions` is rebuilt per evaluation, so this
+ * memo lives at module level; the default rarely changes, and this keeps the common path (no explicit
+ * locale argument) off `supportedLocalesOf`.
+ */
+let lastDefaultLocaleRaw: any = Symbol('unset')
+let lastDefaultLocaleResolved: string | undefined
+function resolveDefaultLocale(raw: any): string | undefined {
+	if (raw !== lastDefaultLocaleRaw) {
+		lastDefaultLocaleRaw = raw
+		lastDefaultLocaleResolved = resolveLocale(raw)
+	}
+	return lastDefaultLocaleResolved
+}
+
 /**
  * The timezone-independent expression functions. These never change, so they are defined once as a
  * module-level constant rather than rebuilt per call. `executeExpression` is a hot path (runs for every
@@ -521,11 +620,16 @@ const STATIC_FUNCTIONS: Record<string, (...args: unknown[]) => any> = {
  * Build the timezone-dependent date functions. `getDefaultTimezone` is called whenever a function falls
  * back to the default timezone (i.e. no explicit `tz` argument is passed); in callers that track it, this
  * registers a dependency on the active timezone so the expression re-evaluates when the timezone changes.
+ * `getDefaultLocale` works the same way for `dateFormat`'s month/weekday names, and returning `undefined`
+ * from it (the default) means the runtime's own locale is used.
  *
  * Rebuilt per evaluation so the getter stays current. Kept separate from the (memoized) static functions
  * so the hot path only rebuilds this small set rather than the full ~60 closures.
  */
-function buildDateFunctions(getDefaultTimezone: () => string | undefined): Record<string, (...args: unknown[]) => any> {
+function buildDateFunctions(
+	getDefaultTimezone: () => string | undefined,
+	getDefaultLocale: () => string | undefined
+): Record<string, (...args: unknown[]) => any> {
 	const resolveTz = (tz: any): string | undefined => (typeof tz === 'string' && tz ? tz : getDefaultTimezone())
 
 	// Add whole calendar units (day/month/year) to `d` as observed in the factory timezone, holding
@@ -558,7 +662,7 @@ function buildDateFunctions(getDefaultTimezone: () => string | undefined): Recor
 		dateMinute: (v, tz) => getDatePart(v, resolveTz(tz), 'minute'),
 		dateSecond: (v, tz) => getDatePart(v, resolveTz(tz), 'second'),
 		dateWeekday: (v, tz) => getDatePart(v, resolveTz(tz), 'weekday'),
-		dateFormat: (v, fmt, tz) => {
+		dateFormat: (v, fmt, tz, locale) => {
 			const d = toDate(v)
 			if (!d) {
 				return ''
@@ -577,16 +681,20 @@ function buildDateFunctions(getDefaultTimezone: () => string | undefined): Recor
 
 			const hours12 = parts.hour % 12 === 0 ? 12 : parts.hour % 12
 
+			// Localized month/weekday names. `locale` is optional; when omitted the runtime's default
+			// locale is used, matching the `internal:date_weekday` variable's `toLocaleString` behaviour.
+			const names = getLocaleDateNames(resolveLocale(locale) ?? resolveDefaultLocale(getDefaultLocale()))
+
 			// dayjs-compatible format tokens, sorted longest-first for greedy matching
 			const tokens: Record<string, string> = {
 				YYYY: String(parts.year),
 				YY: String(parts.year).slice(-2),
-				MMMM: monthNames[parts.month - 1],
-				MMM: monthShort[parts.month - 1],
+				MMMM: names.monthNames[parts.month - 1],
+				MMM: names.monthShort[parts.month - 1],
 				MM: pad(parts.month, '0', 2),
 				M: String(parts.month),
-				dddd: dayNames[parts.weekday],
-				ddd: dayShort[parts.weekday],
+				dddd: names.dayNames[parts.weekday],
+				ddd: names.dayShort[parts.weekday],
 				DD: pad(parts.day, '0', 2),
 				D: String(parts.day),
 				HH: pad(parts.hour, '0', 2),
@@ -782,16 +890,24 @@ export function buildOscillateFunction(clock: OscillateClock): (period: any, wav
  * timezone), or as a getter function. A getter lets callers resolve the timezone lazily and, in Companion,
  * register a dependency on the active timezone so expressions re-evaluate when it changes.
  *
+ * `defaultLocale` works the same way, and controls the month/weekday names `dateFormat` produces when no
+ * explicit locale argument is given. Leaving it unset (or supplying an empty/unsupported value) uses the
+ * runtime's own locale, which matches what `Date.toLocaleString` gives the `internal:date_weekday`
+ * variable -- so a caller that has no locale setting of its own can simply omit it.
+ *
  * Note: when adding new functions, make sure to update the docs!
  *
  * @param defaultTimezone IANA timezone name (or undefined/empty for process-local), or a getter for it
+ * @param defaultLocale BCP 47 locale tag (or undefined/empty for the runtime locale), or a getter for it
  */
 export function createExpressionFunctions(
-	defaultTimezone: string | (() => string | undefined) | undefined
+	defaultTimezone: string | (() => string | undefined) | undefined,
+	defaultLocale?: string | (() => string | undefined)
 ): Record<string, (...args: any[]) => any> {
 	const getDefaultTimezone =
 		typeof defaultTimezone === 'function' ? defaultTimezone : () => defaultTimezone || undefined
-	return Object.assign(Object.create(null), STATIC_FUNCTIONS, buildDateFunctions(getDefaultTimezone))
+	const getDefaultLocale = typeof defaultLocale === 'function' ? defaultLocale : () => defaultLocale || undefined
+	return Object.assign(Object.create(null), STATIC_FUNCTIONS, buildDateFunctions(getDefaultTimezone, getDefaultLocale))
 }
 
 /**

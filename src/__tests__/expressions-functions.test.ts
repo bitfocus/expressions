@@ -766,12 +766,12 @@ describe('functions', () => {
 			// Individual tokens (dayjs format)
 			expect(ExpressionFunctions.dateFormat(ts, 'YYYY', 'UTC')).toBe('2024')
 			expect(ExpressionFunctions.dateFormat(ts, 'YY', 'UTC')).toBe('24')
-			expect(ExpressionFunctions.dateFormat(ts, 'MMMM', 'UTC')).toBe('June')
-			expect(ExpressionFunctions.dateFormat(ts, 'MMM', 'UTC')).toBe('Jun')
+			expect(ExpressionFunctions.dateFormat(ts, 'MMMM', 'UTC', 'en')).toBe('June')
+			expect(ExpressionFunctions.dateFormat(ts, 'MMM', 'UTC', 'en')).toBe('Jun')
 			expect(ExpressionFunctions.dateFormat(ts, 'MM', 'UTC')).toBe('06')
 			expect(ExpressionFunctions.dateFormat(ts, 'M', 'UTC')).toBe('6')
-			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC')).toBe('Saturday')
-			expect(ExpressionFunctions.dateFormat(ts, 'ddd', 'UTC')).toBe('Sat')
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'en')).toBe('Saturday')
+			expect(ExpressionFunctions.dateFormat(ts, 'ddd', 'UTC', 'en')).toBe('Sat')
 			expect(ExpressionFunctions.dateFormat(ts, 'DD', 'UTC')).toBe('15')
 			expect(ExpressionFunctions.dateFormat(ts, 'D', 'UTC')).toBe('15')
 			expect(ExpressionFunctions.dateFormat(ts, 'HH', 'UTC')).toBe('09')
@@ -794,7 +794,7 @@ describe('functions', () => {
 			// Combined formats
 			expect(ExpressionFunctions.dateFormat(ts, 'YYYY-MM-DD', 'UTC')).toBe('2024-06-15')
 			expect(ExpressionFunctions.dateFormat(ts, 'HH:mm:ss', 'UTC')).toBe('09:05:03')
-			expect(ExpressionFunctions.dateFormat(ts, 'dddd, MMMM D, YYYY', 'UTC')).toBe('Saturday, June 15, 2024')
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd, MMMM D, YYYY', 'UTC', 'en')).toBe('Saturday, June 15, 2024')
 
 			// 12-hour formatting
 			const noon = new Date('2024-06-15T12:00:00Z').getTime()
@@ -824,6 +824,85 @@ describe('functions', () => {
 			expect(ExpressionFunctions.dateFormat(null, 'YYYY')).toBe('')
 			// Invalid timezone
 			expect(ExpressionFunctions.dateFormat(ts, 'YYYY', 'Invalid/Zone')).toBe('')
+		})
+
+		it('dateFormat locale', () => {
+			const ts = new Date('2024-06-15T09:05:03.123Z').getTime()
+
+			// The weekday name the runtime's default locale produces. `dateFormat` follows the default locale when
+			// no locale is given, matching the `internal:date_weekday` variable, so this is what the default-path
+			// assertions below compare against -- asserting a literal here would only pass on an English host.
+			const runtimeDefaultWeekday = new Intl.DateTimeFormat(undefined, {
+				weekday: 'long',
+				timeZone: 'UTC',
+			}).format(new Date(ts))
+
+			// Explicit locale localizes month and weekday names
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'fr')).toBe('samedi')
+			expect(ExpressionFunctions.dateFormat(ts, 'MMMM', 'UTC', 'fr')).toBe('juin')
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd, MMMM D, YYYY', 'UTC', 'fr')).toBe('samedi, juin 15, 2024')
+			expect(ExpressionFunctions.dateFormat(ts, 'ddd', 'UTC', 'de')).toBe('Sa')
+
+			// Explicit 'en' forces English regardless of the runtime locale
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd, MMMM D, YYYY', 'UTC', 'en')).toBe('Saturday, June 15, 2024')
+
+			// Numeric tokens are unaffected by locale
+			expect(ExpressionFunctions.dateFormat(ts, 'YYYY-MM-DD HH:mm:ss', 'UTC', 'fr')).toBe('2024-06-15 09:05:03')
+
+			// Omitting the locale follows the runtime's default locale
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC')).toBe(runtimeDefaultWeekday)
+
+			// An empty or whitespace-only locale is treated as 'not given'
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', '')).toBe(runtimeDefaultWeekday)
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', '   ')).toBe(runtimeDefaultWeekday)
+
+			// A malformed tag throws inside Intl; a well-formed but unsupported one does not. Both are rejected and
+			// fall back to the default locale rather than pretending to work.
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'not a locale')).toBe(runtimeDefaultWeekday)
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'en-XYZ')).toBe(runtimeDefaultWeekday)
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'xx')).toBe(runtimeDefaultWeekday)
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'zz-ZZ')).toBe(runtimeDefaultWeekday)
+
+			// Equivalent spellings of a locale agree (they share a cache entry)
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'FR')).toBe('samedi')
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 'fr-FR')).toBe('samedi')
+
+			// Non-string locales are coerced rather than throwing
+			expect(ExpressionFunctions.dateFormat(ts, 'dddd', 'UTC', 123)).toBe(runtimeDefaultWeekday)
+		})
+
+		it('dateFormat default locale is injectable', () => {
+			const ts = new Date('2024-06-15T09:05:03.123Z').getTime()
+			const runtimeDefaultWeekday = new Intl.DateTimeFormat(undefined, {
+				weekday: 'long',
+				timeZone: 'UTC',
+			}).format(new Date(ts))
+
+			// An injected default locale applies when no locale argument is given
+			const french = createExpressionFunctions(undefined, 'fr')
+			expect(french.dateFormat(ts, 'dddd', 'UTC')).toBe('samedi')
+			expect(french.dateFormat(ts, 'MMMM', 'UTC')).toBe('juin')
+
+			// An explicit locale argument still wins over the injected default
+			expect(french.dateFormat(ts, 'dddd', 'UTC', 'en')).toBe('Saturday')
+
+			// Supplied as a getter, it is re-read rather than captured once
+			let current: string | undefined = 'fr'
+			const dynamic = createExpressionFunctions(undefined, () => current)
+			expect(dynamic.dateFormat(ts, 'dddd', 'UTC')).toBe('samedi')
+			current = 'de'
+			expect(dynamic.dateFormat(ts, 'dddd', 'UTC')).toBe('Samstag')
+
+			// Unset, empty or unusable defaults all fall back to the runtime locale, so a caller with no locale
+			// setting of its own can simply not pass one
+			current = undefined
+			expect(dynamic.dateFormat(ts, 'dddd', 'UTC')).toBe(runtimeDefaultWeekday)
+			expect(createExpressionFunctions(undefined).dateFormat(ts, 'dddd', 'UTC')).toBe(runtimeDefaultWeekday)
+			expect(createExpressionFunctions(undefined, '').dateFormat(ts, 'dddd', 'UTC')).toBe(runtimeDefaultWeekday)
+			expect(createExpressionFunctions(undefined, 'xx').dateFormat(ts, 'dddd', 'UTC')).toBe(runtimeDefaultWeekday)
+			expect(createExpressionFunctions(undefined, 'not a locale').dateFormat(ts, 'dddd', 'UTC')).toBe(
+				runtimeDefaultWeekday
+			)
 		})
 
 		it('dateAdd', () => {
